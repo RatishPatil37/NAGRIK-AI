@@ -1,0 +1,59 @@
+# ==============================================================================
+# 🏛️ Nagrik AI (नागरिक AI) - Render Free-Tier Infrastructure Blueprint
+# ==============================================================================
+
+services:
+  - type: web
+    name: nagrik-ai-backend
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn backend.src.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.0
+      - key: ENVIRONMENT
+        value: production
+      - key: TESTING
+        value: "False"
+      - key: PRIMARY_MODEL
+        value: gemini-3.7-flash
+      - key: SECONDARY_MODEL
+        value: gemini-3.5-flash-lite
+      - key: FALLBACK_MODEL
+        value: llama-3.3-70b-versatile
+      - key: QDRANT_COLLECTION
+        value: municipal_knowledge
+      - key: MAX_UPLOAD_SIZE_MB
+        value: "20"
+      - key: RATE_LIMIT_ANON_RPM
+        value: "10"
+      - key: RATE_LIMIT_AUTH_RPM
+        value: "30"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: CORS_URL
+        sync: false
+      - key: LANGFUSE_PUBLIC_KEY
+        sync: false
+      - key: LANGFUSE_SECRET_KEY
+        sync: false
+      - key: LANGFUSE_HOST
+        value: https://cloud.langfuse.com

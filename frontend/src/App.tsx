@@ -22,6 +22,7 @@ import { ReceiptModal } from './components/chat/ReceiptModal';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { fetchWards, streamChatQuery } from './lib/api';
 import { useVoiceRecognition, speakResponse } from './lib/voice';
+import { renderSecureCivicText } from './lib/sanitize';
 import type {
   ChatMessage,
   EscalationTicket,
@@ -303,8 +304,12 @@ export function App() {
                   )}
 
                   {/* Text Content */}
-                  <div className="whitespace-pre-wrap leading-relaxed text-[13.5px]">
-                    {msg.content}
+                  <div className="leading-relaxed text-[13.5px]">
+                    {msg.role === 'user' ? (
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                    ) : (
+                      renderSecureCivicText(msg.content)
+                    )}
                   </div>
 
                   {/* Emergency SOS Alert Card */}

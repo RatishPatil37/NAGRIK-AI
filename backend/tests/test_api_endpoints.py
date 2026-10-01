@@ -51,3 +51,24 @@ async def test_document_download():
         resp = await client.get("/api/v1/documents/MNC-REV-2026-001/download")
         assert resp.status_code == 200
         assert "Property Tax" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_document_upload_and_deduplication():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        sample_doc = b"# Municipal Circular 2026/99\n\nOfficial notice on civic drainage maintenance."
+        files = {"file": ("test_circular.md", sample_doc, "text/markdown")}
+
+        # 1. Initial upload succeeds
+        resp1 = await client.post("/api/v1/documents/upload", files=files)
+        assert resp1.status_code == 200
+        data1 = resp1.json()
+        assert data1["status"] == "success"
+        assert "content_hash" in data1
+
+        # 2. Duplicate upload returns 409 Conflict
+        files2 = {"file": ("test_circular.md", sample_doc, "text/markdown")}
+        resp2 = await client.post("/api/v1/documents/upload", files=files2)
+        assert resp2.status_code == 409
+        assert "Conflict" in resp2.json()["detail"]
