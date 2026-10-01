@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, Globe, Shield, Sparkles, Activity } from 'lucide-react';
+import { MapPin, Globe, Shield, Command, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { MunicipalWard } from '../../types';
 
@@ -39,105 +39,113 @@ export const WardHUD: React.FC<WardHUDProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 glass-nav px-4 py-2.5 transition-all">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-        {/* Brand & Municipal Seal */}
+    <header className="sticky top-0 z-40 liquid-glass-nav px-4 sm:px-6 py-3 transition-all">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        {/* Brand & Municipal Vector Crest */}
         <div className="flex items-center gap-3">
           <motion.div
-            whileHover={{ rotate: 5, scale: 1.05 }}
-            className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 via-teal-600 to-cyan-500 flex items-center justify-center font-bold text-white shadow-lg shadow-emerald-500/20 border border-emerald-400/30"
+            whileHover={{ scale: 1.04 }}
+            className="w-9 h-9 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center text-zinc-100 shadow-sm shadow-black/40"
           >
-            🏛️
+            {/* Geometric Municipal Vector Crest (Zero Emojis) */}
+            <svg
+              className="w-5 h-5 text-zinc-200"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 2L3 7v6c0 5.5 3.8 10.7 9 12 5.2-1.3 9-6.5 9-12V7l-9-5z" />
+              <path d="M12 7v10" />
+              <path d="M8 11h8" />
+            </svg>
           </motion.div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-extrabold text-base tracking-tight text-white font-display">
-                Nagrik AI
+              <span className="font-bold text-base tracking-tight text-white font-display">
+                NAGRIK
               </span>
-              <span className="text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full tracking-wide">
-                नागरिक AI
+              <span className="text-[11px] font-mono text-zinc-400 px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.07]">
+                OS v2.6
               </span>
             </div>
-            <div className="flex items-center gap-2 text-[10px] text-slate-400 hidden sm:flex">
-              <span className="flex items-center gap-1 text-emerald-400">
-                <Activity className="w-3 h-3 animate-pulse" />
-                <span>Live Municipal Gateway</span>
+            <div className="flex items-center gap-2 text-[10px] text-zinc-400 hidden sm:flex font-mono">
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/80" />
+                <span>Statutory Civic Core</span>
               </span>
               <span>•</span>
-              <span>2026 Statutory Index</span>
+              <span>2026 Gazettes Verified</span>
             </div>
           </div>
         </div>
 
-        {/* Living Ward Profile HUD Indicator */}
+        {/* Liquid Glass Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Ward Selector Pill */}
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-700/80 text-xs shadow-inner shadow-black/20 hover:border-emerald-500/50 transition-colors"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399]" />
-            <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          {/* Ward Selector Liquid Pill */}
+          <div className="relative flex items-center liquid-glass-pill px-3 py-1.5 rounded-full text-xs text-zinc-300">
+            <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0 mr-1.5" />
             <select
               value={selectedWardId || currentWard.ward_id}
               onChange={(e) => onSelectWard(Number(e.target.value))}
-              className="bg-transparent text-slate-200 font-medium focus:outline-none cursor-pointer text-xs pr-1"
+              className="bg-transparent text-zinc-200 font-medium focus:outline-none cursor-pointer text-xs pr-4 appearance-none"
             >
               {wards.map((w) => (
-                <option key={w.ward_id} value={w.ward_id} className="bg-slate-900 text-white">
+                <option key={w.ward_id} value={w.ward_id} className="bg-[#0E1017] text-zinc-200">
                   {w.ward_name} ({w.zone_name})
                 </option>
               ))}
             </select>
-          </motion.div>
+            <ChevronDown className="w-3 h-3 text-zinc-500 pointer-events-none absolute right-2.5" />
+          </div>
 
-          {/* Multilingual Selector Pill */}
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-slate-900/80 border border-slate-700/80 text-xs shadow-inner shadow-black/20 hover:border-cyan-500/50 transition-colors"
-          >
-            <Globe className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+          {/* Multilingual Selector Liquid Pill */}
+          <div className="relative flex items-center liquid-glass-pill px-2.5 py-1.5 rounded-full text-xs text-zinc-300">
+            <Globe className="w-3.5 h-3.5 text-zinc-400 shrink-0 mr-1.5" />
             <select
               value={language}
               onChange={(e) => onSelectLanguage(e.target.value)}
-              className="bg-transparent text-slate-200 font-medium focus:outline-none cursor-pointer text-xs"
+              className="bg-transparent text-zinc-200 font-medium focus:outline-none cursor-pointer text-xs pr-3 appearance-none"
             >
               {LANGUAGES.map((l) => (
-                <option key={l.code} value={l.code} className="bg-slate-900 text-white">
-                  {l.label} ({l.short})
+                <option key={l.code} value={l.code} className="bg-[#0E1017] text-zinc-200">
+                  {l.short}
                 </option>
               ))}
             </select>
-          </motion.div>
+            <ChevronDown className="w-2.5 h-2.5 text-zinc-500 pointer-events-none absolute right-1.5" />
+          </div>
 
-          {/* Command Palette Button (Cmd+K) */}
+          {/* Command Palette Trigger (Cmd+K) */}
           <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={onOpenCommandPalette}
-            className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-xs text-slate-300 transition-all shadow-sm"
-            title="Press Cmd+K or Ctrl+K to navigate"
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl liquid-glass-pill text-xs text-zinc-300 hover:text-white transition-all cursor-pointer"
+            title="Press Cmd+K or Ctrl+K to search"
           >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span className="font-medium">Quick Nav</span>
-            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-slate-950 text-slate-400 rounded-md border border-slate-700">
+            <Command className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="font-medium text-[11px]">Search</span>
+            <kbd className="px-1.5 py-0.5 text-[9px] font-mono bg-black/40 text-zinc-400 rounded border border-white/10">
               ⌘K
             </kbd>
           </motion.button>
 
-          {/* Admin / Decision Support Toggle */}
+          {/* Executive Mode Switcher */}
           <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={onToggleAdmin}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shadow-md ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
               isAdminMode
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-amber-500/20'
-                : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700/80 border border-slate-700'
+                ? 'bg-zinc-100 text-zinc-950 font-semibold shadow-sm'
+                : 'liquid-glass-pill text-zinc-300 hover:text-white'
             }`}
           >
-            <Shield className={`w-3.5 h-3.5 ${isAdminMode ? 'text-slate-950' : 'text-amber-400'}`} />
-            <span className="hidden sm:inline">{isAdminMode ? 'Ward Command HUD' : 'Admin Command'}</span>
+            <Shield className={`w-3.5 h-3.5 ${isAdminMode ? 'text-zinc-900' : 'text-zinc-400'}`} />
+            <span className="hidden sm:inline">{isAdminMode ? 'Executive HUD' : 'Ward Admin'}</span>
           </motion.button>
         </div>
       </div>

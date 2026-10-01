@@ -33,7 +33,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           {/* Top Control Bar (Hidden during print) */}
           <div className="no-print flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              <Landmark className="w-4 h-4 text-zinc-700" />
               <span className="font-bold text-xs text-slate-800 uppercase tracking-wider font-display">
                 Official Municipal Receipt
               </span>
@@ -41,9 +41,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             <div className="flex items-center gap-2.5">
               <button
                 onClick={handlePrint}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0B192C] hover:bg-slate-800 text-white text-xs font-semibold shadow-md transition-all cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold shadow-md transition-all cursor-pointer"
               >
-                <Printer className="w-4 h-4 text-emerald-400" />
+                <Printer className="w-4 h-4 text-zinc-300" />
                 <span>Print / Save PDF</span>
               </button>
               <button

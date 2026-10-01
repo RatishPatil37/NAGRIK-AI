@@ -78,63 +78,62 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-slate-950/80 backdrop-blur-md p-4">
+      <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/70 backdrop-blur-md p-4">
         <motion.div
-          initial={{ opacity: 0, scale: 0.94, y: -10 }}
+          initial={{ opacity: 0, scale: 0.96, y: -8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.94, y: -10 }}
+          exit={{ opacity: 0, scale: 0.96, y: -8 }}
           transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-xl glass-card rounded-2xl shadow-2xl border border-slate-700/80 overflow-hidden"
+          className="w-full max-w-xl liquid-glass rounded-2xl shadow-2xl border border-white/10 overflow-hidden"
         >
           {/* Input Bar */}
-          <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-700/60 bg-slate-900/60">
-            <Search className="w-5 h-5 text-emerald-400 shrink-0" />
+          <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.08] bg-white/[0.02]">
+            <Search className="w-4 h-4 text-zinc-400 shrink-0" />
             <input
               type="text"
-              placeholder="Search municipal service, tax rule, or complaint (e.g. water, tax, permit)..."
+              placeholder="Search municipal service, tax rule, or complaint..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               autoFocus
-              className="w-full bg-transparent text-sm font-medium text-white placeholder-slate-400 focus:outline-none"
+              className="w-full bg-transparent text-sm font-medium text-white placeholder-zinc-500 focus:outline-none"
             />
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.08] transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
           {/* Command List */}
-          <div className="max-h-96 overflow-y-auto p-2.5 space-y-1">
+          <div className="max-h-96 overflow-y-auto p-2 space-y-1">
             {filteredCommands.length === 0 ? (
-              <div className="py-8 text-center text-sm text-slate-400">
-                No matching municipal services found. Press Esc to close.
+              <div className="py-8 text-center text-xs text-zinc-400 font-mono">
+                No matching municipal services found. Press ESC to close.
               </div>
             ) : (
               filteredCommands.map((cmd, idx) => {
                 const Icon = cmd.icon;
                 return (
                   <motion.button
-                    whileHover={{ scale: 1.01, x: 2 }}
-                    whileTap={{ scale: 0.99 }}
+                    whileHover={{ x: 2 }}
                     key={idx}
                     onClick={() => {
                       onSelectAction(cmd.query);
                       onClose();
                     }}
-                    className="w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl hover:bg-slate-800/80 text-left transition-all group cursor-pointer border border-transparent hover:border-slate-700/80"
+                    className="w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl hover:bg-white/[0.06] text-left transition-all group cursor-pointer border border-transparent hover:border-white/10"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 group-hover:bg-emerald-500/20 group-hover:border-emerald-500/30 text-slate-300 group-hover:text-emerald-300 flex items-center justify-center shrink-0 transition-colors">
+                    <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/10 text-zinc-300 group-hover:text-white flex items-center justify-center shrink-0 transition-colors">
                       <Icon className="w-4 h-4" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors truncate font-display">
+                      <div className="text-xs font-semibold text-zinc-200 group-hover:text-white transition-colors truncate font-display">
                         {cmd.title}
                       </div>
-                      <div className="text-[11px] text-slate-400">{cmd.category}</div>
+                      <div className="text-[11px] text-zinc-500 font-mono">{cmd.category}</div>
                     </div>
-                    <kbd className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-mono bg-slate-900 text-slate-400 rounded-md border border-slate-700">
+                    <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-mono bg-black/40 text-zinc-400 rounded border border-white/10">
                       ↵
                     </kbd>
                   </motion.button>
@@ -144,9 +143,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-2.5 bg-slate-900/80 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+          <div className="px-4 py-2.5 bg-black/30 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-zinc-500 font-mono">
             <span>Navigate with mouse or keyboard</span>
-            <span className="font-mono">ESC to cancel</span>
+            <span>ESC to close</span>
           </div>
         </motion.div>
       </div>

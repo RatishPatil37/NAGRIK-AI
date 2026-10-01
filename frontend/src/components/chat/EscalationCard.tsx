@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Clock, Printer, CheckCircle2, Hash, Copy, Check } from 'lucide-react';
+import React, { useState } from 'react';
+import { Clock, Printer, Hash, Copy, Check, FileCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
-import confetti from 'canvas-confetti';
 import type { EscalationTicket } from '../../types';
 
 interface EscalationCardProps {
@@ -16,20 +15,6 @@ export const EscalationCard: React.FC<EscalationCardProps> = ({
   onOpenReceipt,
 }) => {
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    // Fire celebratory confetti on ticket creation
-    try {
-      confetti({
-        particleCount: 40,
-        spread: 60,
-        origin: { y: 0.8 },
-        colors: ['#10B981', '#06B6D4', '#F59E0B'],
-      });
-    } catch (e) {
-      // Graceful fallback if canvas is restricted
-    }
-  }, []);
 
   const handleCopyTicket = () => {
     navigator.clipboard.writeText(escalation.ticket_id);
@@ -46,47 +31,48 @@ export const EscalationCard: React.FC<EscalationCardProps> = ({
     minute: '2-digit',
   });
 
+  const now = new Date();
+  const diffMs = deadlineDate.getTime() - now.getTime();
+  const calculatedHours = Math.max(4, Math.round(diffMs / (1000 * 60 * 60)));
+
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95, y: 10 }}
+      initial={{ opacity: 0, scale: 0.96, y: 8 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="my-4 p-5 rounded-2xl glass-card border border-emerald-500/30 shadow-2xl relative overflow-hidden group"
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      className="my-4 p-5 rounded-2xl liquid-glass border border-white/10 text-white relative overflow-hidden"
     >
-      {/* Background Ambient Glow */}
-      <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-
-      {/* Header Docket Badge */}
-      <div className="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-700/60 relative z-10">
+      {/* Top Docket Bar */}
+      <div className="flex items-center justify-between gap-3 pb-3 mb-3 border-b border-white/[0.08]">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-emerald-500/20 font-mono">
+          <div className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/10 flex items-center justify-center font-mono font-bold text-xs text-zinc-200">
             {escalation.dept_code}
           </div>
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-              Official Grievance Docket
+            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 block">
+              Official Grievance Docket Registered
             </span>
-            <div className="font-mono font-bold text-sm text-white flex items-center gap-1.5">
-              <Hash className="w-3.5 h-3.5 text-slate-400" />
+            <div className="font-mono font-bold text-sm text-zinc-100 flex items-center gap-1.5">
+              <Hash className="w-3.5 h-3.5 text-zinc-500" />
               <span>{escalation.ticket_id}</span>
               <button
                 onClick={handleCopyTicket}
-                className="text-slate-400 hover:text-emerald-300 transition-colors p-1"
+                className="text-zinc-400 hover:text-white transition-colors p-1"
                 title="Copy Ticket ID"
               >
-                {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? <Check className="w-3.5 h-3.5 text-zinc-200" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
             </div>
           </div>
         </div>
 
         <span
-          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border shadow-sm ${
+          className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider border ${
             escalation.priority === 'emergency'
-              ? 'bg-red-500/15 text-red-300 border-red-500/40 shadow-red-500/10'
+              ? 'bg-rose-500/10 text-rose-300 border-rose-500/20'
               : escalation.priority === 'high'
-              ? 'bg-amber-500/15 text-amber-300 border-amber-500/40 shadow-amber-500/10'
-              : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 shadow-emerald-500/10'
+              ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+              : 'bg-zinc-800 text-zinc-300 border-white/10'
           }`}
         >
           {escalation.priority} Priority
@@ -94,39 +80,42 @@ export const EscalationCard: React.FC<EscalationCardProps> = ({
       </div>
 
       {/* Details Grid */}
-      <div className="grid grid-cols-2 gap-2.5 text-xs mb-4 text-slate-300 relative z-10">
-        <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-          <span className="text-[10px] text-slate-400 block mb-0.5 font-medium">Issue Category</span>
-          <span className="font-semibold text-white">{escalation.category}</span>
+      <div className="grid grid-cols-2 gap-2.5 text-xs mb-4 text-zinc-300">
+        <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+          <span className="text-[10px] text-zinc-400 block mb-0.5 font-mono">Department & Category</span>
+          <span className="font-medium text-zinc-200">{escalation.category}</span>
         </div>
-        <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-          <span className="text-[10px] text-slate-400 block mb-0.5 font-medium">Ward Jurisdiction</span>
-          <span className="font-semibold text-white">{wardName}</span>
-        </div>
-        <div className="col-span-2 p-3 rounded-xl bg-gradient-to-r from-emerald-950/40 to-teal-950/30 border border-emerald-500/30 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-emerald-300">
-            <Clock className="w-4 h-4 text-emerald-400 shrink-0 animate-spin-slow" />
-            <span className="text-xs font-semibold">Statutory SLA Redressal Target:</span>
-          </div>
-          <span className="font-mono font-bold text-xs text-emerald-200">{formattedDeadline}</span>
+        <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+          <span className="text-[10px] text-zinc-400 block mb-0.5 font-mono">Jurisdiction</span>
+          <span className="font-medium text-zinc-200">{wardName}</span>
         </div>
       </div>
 
-      {/* Action: Printable Receipt */}
-      <div className="flex items-center justify-between pt-1 relative z-10">
-        <span className="text-xs text-slate-400 flex items-center gap-1.5">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          <span>Dispatched to Municipal Ward Field Unit</span>
+      {/* SLA Timer Indicator */}
+      <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.07] flex items-center justify-between text-xs mb-4">
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-zinc-400" />
+          <span className="text-zinc-300 font-medium">Statutory SLA Target</span>
+        </div>
+        <div className="text-right">
+          <div className="font-mono font-bold text-zinc-100">{calculatedHours}h Statutory Target</div>
+          <div className="text-[10px] text-zinc-400 font-mono">Deadline: {formattedDeadline}</div>
+        </div>
+      </div>
+
+      {/* Action Footer */}
+      <div className="flex items-center justify-between pt-3 border-t border-white/[0.06]">
+        <span className="text-[11px] text-zinc-400 font-mono flex items-center gap-1.5">
+          <FileCheck className="w-3.5 h-3.5 text-zinc-400" />
+          <span>Cryptographically Sealed</span>
         </span>
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
+        <button
           onClick={() => onOpenReceipt(escalation)}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-semibold shadow-lg shadow-emerald-600/25 transition-all cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg liquid-glass-pill text-xs font-medium text-zinc-200 hover:text-white transition-all cursor-pointer"
         >
-          <Printer className="w-4 h-4" />
+          <Printer className="w-3.5 h-3.5 text-zinc-400" />
           <span>Print Official Receipt</span>
-        </motion.button>
+        </button>
       </div>
     </motion.div>
   );

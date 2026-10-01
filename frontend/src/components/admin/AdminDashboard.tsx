@@ -126,7 +126,7 @@ export const AdminDashboard: React.FC = () => {
         >
           <div className="flex items-center justify-between text-amber-400 mb-2">
             <span className="text-[11px] font-bold uppercase tracking-wider font-display">&gt;2σ Anomaly Wards</span>
-            <Flame className="w-4 h-4 text-amber-400 animate-bounce" />
+            <TrendingUp className="w-4 h-4 text-amber-400" />
           </div>
           <div className="text-3xl font-extrabold text-amber-300 font-display">{redAlertCount}</div>
           <span className="text-[11px] text-amber-300/80 font-medium mt-1 block">
@@ -153,40 +153,40 @@ export const AdminDashboard: React.FC = () => {
         </motion.div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-slate-800 mb-6 gap-3">
+      {/* Modern Liquid Glass Pill Tabs */}
+      <div className="flex flex-wrap p-1.5 rounded-2xl liquid-glass mb-6 gap-1 max-w-2xl">
         <button
           onClick={() => setActiveTab('heatmap')}
-          className={`pb-3 px-4 text-xs font-bold tracking-wide transition-all cursor-pointer border-b-2 flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer flex items-center gap-2 ${
             activeTab === 'heatmap'
-              ? 'border-emerald-400 text-emerald-300'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'bg-white text-zinc-950 font-semibold shadow-sm'
+              : 'text-zinc-400 hover:text-white'
           }`}
         >
-          <BarChart3 className="w-4 h-4" />
-          <span>Spatial Ward Heatmap (2σ Alerting)</span>
+          <BarChart3 className="w-3.5 h-3.5" />
+          <span>Spatial Ward Heatmap</span>
         </button>
         <button
           onClick={() => setActiveTab('sla')}
-          className={`pb-3 px-4 text-xs font-bold tracking-wide transition-all cursor-pointer border-b-2 flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer flex items-center gap-2 ${
             activeTab === 'sla'
-              ? 'border-emerald-400 text-emerald-300'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'bg-white text-zinc-950 font-semibold shadow-sm'
+              : 'text-zinc-400 hover:text-white'
           }`}
         >
-          <Clock className="w-4 h-4" />
-          <span>SLA Countdown & Breach Queue</span>
+          <Clock className="w-3.5 h-3.5" />
+          <span>SLA Queue & Breaches</span>
         </button>
         <button
           onClick={() => setActiveTab('faqs')}
-          className={`pb-3 px-4 text-xs font-bold tracking-wide transition-all cursor-pointer border-b-2 flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer flex items-center gap-2 ${
             activeTab === 'faqs'
-              ? 'border-emerald-400 text-emerald-300'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'bg-white text-zinc-950 font-semibold shadow-sm'
+              : 'text-zinc-400 hover:text-white'
           }`}
         >
-          <Layers className="w-4 h-4" />
-          <span>Trending Citizen FAQs & Policy Gaps</span>
+          <Layers className="w-3.5 h-3.5" />
+          <span>Trending FAQs & Gaps</span>
         </button>
       </div>
 

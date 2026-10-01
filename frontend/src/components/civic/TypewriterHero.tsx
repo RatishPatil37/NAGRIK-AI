@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Search, ArrowRight, ShieldCheck, Cpu, Zap, FileCheck2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const SAMPLE_QUERIES = [
-  "What is the 2026 Property Tax rebate deadline for Ward 04?",
-  "How to report an urgent water pipeline leak on Linking Road?",
-  "Mera birth certificate online download kaise karein?",
-  "What are the building plan approval rules under Section 14(b)?",
-  "Where is the Ward 08 Kurla civic ward office located?",
-  "What are the solid waste segregation guidelines for residential societies?"
+  "What is the 2026 Property Tax rebate deadline for Ward 04 Bandra?",
+  "Report an urgent 12-inch water main rupture on Linking Road with sewage backflow.",
+  "Mera birth certificate online download karne ka statutory procedure kya hai?",
+  "What are the residential setback standards under Section 14(b) of the Building Bylaws?",
+  "What are the commercial solid waste non-segregation penalties under 2026 rules?",
+  "Where is the Ward 08 Kurla civic office located and what are the citizen counter timings?"
 ];
 
 interface TypewriterHeroProps {
@@ -22,10 +22,10 @@ export const TypewriterHero: React.FC<TypewriterHeroProps> = ({ onSelectQuery })
 
   useEffect(() => {
     const fullText = SAMPLE_QUERIES[currentTextIndex];
-    const typingSpeed = isDeleting ? 25 : 45;
+    const typingSpeed = isDeleting ? 20 : 40;
 
     if (!isDeleting && displayedText === fullText) {
-      const pauseTimer = setTimeout(() => setIsDeleting(true), 2400);
+      const pauseTimer = setTimeout(() => setIsDeleting(true), 2600);
       return () => clearTimeout(pauseTimer);
     } else if (isDeleting && displayedText === '') {
       setIsDeleting(false);
@@ -47,76 +47,97 @@ export const TypewriterHero: React.FC<TypewriterHeroProps> = ({ onSelectQuery })
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className="w-full max-w-4xl mx-auto px-4 py-8 text-center"
+      className="w-full max-w-4xl mx-auto px-4 pt-6 pb-4 text-center"
     >
-      {/* Official Government Seal / Badge */}
+      {/* Editorial Micro-Badge */}
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
+        initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.1, duration: 0.5 }}
-        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-semibold tracking-wide uppercase mb-6 shadow-lg shadow-emerald-500/5 backdrop-blur-md"
+        transition={{ delay: 0.1, duration: 0.4 }}
+        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full liquid-glass-pill text-zinc-300 text-xs font-mono mb-6"
       >
-        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />
-        <span>Official Municipal AI Knowledge & Decision Workstation</span>
-        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+        <ShieldCheck className="w-3.5 h-3.5 text-zinc-300" />
+        <span>Statutory Municipal OS • 2026 Gazettes</span>
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/80" />
       </motion.div>
 
-      {/* Main Title with Gradient Shimmer */}
-      <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white mb-4 font-display">
-        Civic Intelligence.{" "}
-        <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
+      {/* Editorial Typography (Zero Neon) */}
+      <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white mb-4 font-display leading-[1.08]">
+        Precision Civic Intelligence.
+        <br />
+        <span className="bg-gradient-to-b from-white via-zinc-200 to-zinc-500 bg-clip-text text-transparent">
           Zero Hallucination.
         </span>
       </h1>
 
-      <p className="text-slate-300/80 text-base sm:text-lg max-w-2xl mx-auto mb-8 font-normal leading-relaxed">
-        Grounded in verified 2026 Municipal Gazettes, Property Tax Bylaws, and Water Supply Charters.
-        Ask in English, Hindi, or Marathi with real-time statutory citations.
+      <p className="text-zinc-400 text-sm sm:text-base md:text-lg max-w-2xl mx-auto mb-8 font-normal leading-relaxed">
+        Grounded strictly in verified municipal bylaws, property tax schedules, and engineering charters. 
+        Instant multilingual assistance with deterministic statutory citations.
       </p>
 
-      {/* Interactive Typewriter Prompt Capsule */}
+      {/* Liquid Glass Interactive Search Capsule (21st.dev Style) */}
       <motion.div
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.99 }}
         onClick={() => onSelectQuery(displayedText || SAMPLE_QUERIES[currentTextIndex])}
-        className="glass-card-interactive group cursor-pointer max-w-2xl mx-auto rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-3 text-left shadow-2xl shadow-black/40 border border-slate-700/60 hover:border-emerald-500/40 relative overflow-hidden"
+        className="liquid-glass group cursor-pointer max-w-2xl mx-auto rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 text-left border border-white/10 hover:border-white/20 transition-all shadow-2xl relative overflow-hidden"
       >
         <div className="flex items-center gap-3.5 flex-1 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center shrink-0 text-emerald-400 group-hover:scale-110 transition-transform">
-            <Sparkles className="w-5 h-5 animate-pulse" />
+          <div className="w-10 h-10 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center shrink-0 text-zinc-300 group-hover:text-white transition-colors">
+            <Search className="w-4 h-4" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-[11px] font-semibold text-emerald-400/90 uppercase tracking-wider mb-0.5">
-              Live Prompt Demo • Click to Ask
+            <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-0.5">
+              Live Prompt • Click To Consult
             </div>
-            <div className="text-slate-100 font-medium text-sm sm:text-base truncate">
+            <div className="text-zinc-100 font-medium text-sm sm:text-base truncate">
               <span>{displayedText}</span>
               <span className="typing-cursor" />
             </div>
           </div>
         </div>
-        <div className="w-9 h-9 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-slate-400 group-hover:text-emerald-300 group-hover:bg-emerald-500/20 group-hover:border-emerald-500/30 transition-all shrink-0">
-          <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+
+        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 text-zinc-300 text-xs font-mono group-hover:bg-white/[0.1] group-hover:text-white transition-all shrink-0">
+          <span>Consult</span>
+          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
         </div>
       </motion.div>
 
-      {/* Live Operational Metric Ticker */}
-      <div className="mt-10 pt-6 border-t border-slate-800/80 flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-xs text-slate-400 font-mono">
+      {/* Suggested Fast Query Pills */}
+      <div className="flex flex-wrap items-center justify-center gap-2 max-w-2xl mx-auto mt-4">
+        {[
+          { label: "Property Tax 10% Rebate", q: "What is the early bird 10% rebate for Property Tax in Ward 4?" },
+          { label: "Report Water Main Rupture", q: "Report water pipe burst with contaminated water" },
+          { label: "Building Plan Setbacks (OBPAS)", q: "What are the setbacks and approval SLAs for building plan permission?" },
+          { label: "Garbage Bylaw Penalties", q: "What are the penalties for open garbage dumping under 2026 rules?" },
+        ].map((item, idx) => (
+          <button
+            key={idx}
+            onClick={() => onSelectQuery(item.q)}
+            className="liquid-glass-pill px-3 py-1.5 rounded-full text-xs text-zinc-400 hover:text-zinc-100 transition-colors cursor-pointer"
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Minimalist Telemetry Grid (Zero Neon) */}
+      <div className="mt-10 pt-6 border-t border-white/[0.06] flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-xs text-zinc-400 font-mono">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400" />
-          <span className="text-slate-200 font-semibold">&lt;800ms</span> TTFT
+          <Zap className="w-3.5 h-3.5 text-zinc-300" />
+          <span>&lt;800ms Latency</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-cyan-400" />
-          <span className="text-slate-200 font-semibold">100%</span> RRF Evidence Pruned
+          <FileCheck2 className="w-3.5 h-3.5 text-zinc-300" />
+          <span>100% Deterministic Grounding</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-amber-400" />
-          <span className="text-slate-200 font-semibold">&lt;5ms</span> Emergency Pre-Gate
+          <ShieldCheck className="w-3.5 h-3.5 text-zinc-300" />
+          <span>&lt;5ms Emergency Gate</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-indigo-400" />
-          <span className="text-slate-200 font-semibold">Gemini 3.7 + Groq</span> Resiliency
+          <Cpu className="w-3.5 h-3.5 text-zinc-300" />
+          <span>Triple Redundancy Fallback</span>
         </div>
       </div>
     </motion.div>

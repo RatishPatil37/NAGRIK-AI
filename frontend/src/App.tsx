@@ -5,18 +5,18 @@ import {
   MicOff,
   Volume2,
   VolumeX,
-  Sparkles,
   User,
-  Droplets,
-  Home,
-  Trash2,
-  Building,
   RotateCcw,
   Bot,
   CheckCircle2,
-  ShieldCheck,
-  Cpu,
-  Zap,
+  Scale,
+  FileCheck2,
+  ShieldAlert,
+  Building2,
+  ArrowRight,
+  Clock,
+  Hash,
+  Compass,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WardHUD } from './components/civic/WardHUD';
@@ -33,6 +33,9 @@ import { useVoiceRecognition, speakResponse } from './lib/voice';
 import { renderSecureCivicText } from './lib/sanitize';
 import type {
   ChatMessage,
+  CitationItem,
+  EmergencyPayload,
+  ClarificationPayload,
   EscalationTicket,
   MunicipalWard,
 } from './types';
@@ -41,9 +44,9 @@ const INITIAL_WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome',
   role: 'assistant',
   content:
-    'Namaste! Welcome to **Nagrik AI (नागरिक AI)** — your official Municipal AI Concierge.\n\n' +
-    'I provide verified statutory answers grounded strictly in **2026 Municipal Gazettes**, **Property Tax Bylaws**, **Water Charters**, and **Building Regulations** with zero hallucination.\n\n' +
-    'Select a quick service below or ask any municipal question in English, Hindi, or Marathi.',
+    'Welcome to **Nagrik AI (नागरिक AI)** — your official Municipal Operating System & Concierge.\n\n' +
+    'All intelligence is grounded deterministically in **2026 Municipal Gazettes**, **Property Tax Bylaws**, **Water Supply Charters**, and **Building Regulations** with zero hallucination.\n\n' +
+    'Ask any municipal inquiry below or select a statutory service to begin.',
   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
 };
 
@@ -75,170 +78,159 @@ export function App() {
       .catch((e) => console.error('Failed to load wards:', e));
   }, []);
 
-  // Auto-scroll on new messages
+  // Auto-scroll chat to latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isStreaming]);
 
   // Voice Recognition Handler
-  const handleVoiceInput = (transcribedText: string) => {
-    setInputQuery(transcribedText);
-    handleSubmit(transcribedText);
-  };
-
-  const { isListening, startListening } = useVoiceRecognition(handleVoiceInput, language);
-
-  const currentWard = wards.find((w) => w.ward_id === selectedWardId);
+  const { isListening, startListening } = useVoiceRecognition(
+    (transcript: string) => {
+      setInputQuery(transcript);
+      handleSubmit(transcript);
+    },
+    language
+  );
 
   const handleResetChat = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
+    setMessages([
+      {
+        ...INITIAL_WELCOME_MESSAGE,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ]);
     setIsStreaming(false);
-    setMessages([INITIAL_WELCOME_MESSAGE]);
   };
 
-  const handleSubmit = async (queryText?: string) => {
-    const q = (queryText || inputQuery).trim();
-    if (!q || isStreaming) return;
+  const handleClarificationSelect = (value: any, label: string) => {
+    handleSubmit(`Selected: ${label} (${value})`);
+  };
 
-    setInputQuery('');
+  const handleSubmit = async (overrideQuery?: string) => {
+    const query = overrideQuery || inputQuery;
+    if (!query.trim() || isStreaming) return;
 
-    // Add user message
-    const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
+    const userMessageId = `user-${Date.now()}`;
+    const userMessage: ChatMessage = {
+      id: userMessageId,
       role: 'user',
-      content: q,
+      content: query,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    // Add empty assistant placeholder
-    const assistantMsgId = `assistant-${Date.now()}`;
-    const assistantPlaceholder: ChatMessage = {
-      id: assistantMsgId,
+    const assistantMessageId = `assistant-${Date.now()}`;
+    const assistantMessagePlaceholder: ChatMessage = {
+      id: assistantMessageId,
       role: 'assistant',
       content: '',
-      statusText: 'Connecting to municipal gazette index...',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      statusText: 'Consulting 2026 Municipal Gazettes...',
     };
 
-    setMessages((prev) => [...prev, userMsg, assistantPlaceholder]);
+    setMessages((prev) => [...prev, userMessage, assistantMessagePlaceholder]);
+    setInputQuery('');
     setIsStreaming(true);
 
-    const abortCtrl = new AbortController();
-    abortControllerRef.current = abortCtrl;
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
-    let accumulatedContent = '';
+    let fullAnswer = '';
 
     await streamChatQuery(
-      q,
+      query,
       selectedWardId,
       language,
       {
-        onStatus(status) {
+        onStatus: (status: string) => {
           setMessages((prev) =>
-            prev.map((m) => (m.id === assistantMsgId ? { ...m, statusText: status } : m))
-          );
-        },
-        onToken(token, model) {
-          accumulatedContent += token;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMsgId
-                ? { ...m, content: accumulatedContent, modelUsed: model, statusText: undefined }
-                : m
+            prev.map((msg) =>
+              msg.id === assistantMessageId ? { ...msg, statusText: status } : msg
             )
           );
         },
-        onCitations(citations) {
+        onToken: (token: string, model: string) => {
+          fullAnswer += token;
           setMessages((prev) =>
-            prev.map((m) => (m.id === assistantMsgId ? { ...m, citations } : m))
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: fullAnswer, statusText: undefined, modelUsed: model }
+                : msg
+            )
           );
         },
-        onSOS(sos) {
+        onCitations: (citations: CitationItem[]) => {
           setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMsgId
+            prev.map((msg) =>
+              msg.id === assistantMessageId ? { ...msg, citations } : msg
+            )
+          );
+        },
+        onSOS: (sos: EmergencyPayload) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId ? { ...msg, emergency: sos } : msg
+            )
+          );
+        },
+        onClarification: (clarification: ClarificationPayload) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId ? { ...msg, clarification } : msg
+            )
+          );
+        },
+        onEscalation: (escalation: EscalationTicket) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId ? { ...msg, escalation } : msg
+            )
+          );
+        },
+        onError: (errMsg: any) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
                 ? {
-                    ...m,
-                    content: sos.message,
-                    emergency: sos,
+                    ...msg,
+                    content: `Service Notice: ${errMsg}`,
                     statusText: undefined,
                   }
-                : m
+                : msg
             )
           );
-        },
-        onClarification(clarification) {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMsgId
-                ? {
-                    ...m,
-                    clarification,
-                    statusText: undefined,
-                  }
-                : m
-            )
-          );
-        },
-        onEscalation(escalation) {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === assistantMsgId ? { ...m, escalation } : m))
-          );
-        },
-        onDone() {
           setIsStreaming(false);
-          if (isTTSEnabled && accumulatedContent) {
-            speakResponse(accumulatedContent, language);
+        },
+        onDone: () => {
+          setIsStreaming(false);
+          if (isTTSEnabled && fullAnswer) {
+            speakResponse(fullAnswer, language);
           }
         },
-        onError(err) {
-          console.error('[Stream Error]', err);
-          setIsStreaming(false);
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMsgId
-                ? {
-                    ...m,
-                    content:
-                      accumulatedContent ||
-                      'Sorry, an error occurred while connecting to the municipal engine. Please retry.',
-                    statusText: undefined,
-                  }
-                : m
-            )
-          );
-        },
       },
-      abortCtrl
+      abortController
     );
   };
 
-  const handleClarificationSelect = (wardId: number, label: string) => {
-    setSelectedWardId(wardId);
-    handleSubmit(`Selected Ward: ${label}`);
-  };
+  const currentWard = wards.find((w) => w.ward_id === selectedWardId);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#090E17] text-slate-100 font-sans bg-grid-pattern relative selection:bg-emerald-500/30 selection:text-emerald-200">
-      {/* Ambient Lighting Orbs */}
-      <div className="fixed top-0 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="fixed bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/8 rounded-full blur-[140px] pointer-events-none" />
-
-      {/* Living Ward Profile HUD Top Bar */}
+    <div className="min-h-screen bg-grid-pattern text-zinc-100 flex flex-col font-sans selection:bg-white/20 selection:text-white">
+      {/* Living Ward & Mode Navigation HUD */}
       <WardHUD
         wards={wards}
         selectedWardId={selectedWardId}
-        onSelectWard={setSelectedWardId}
+        onSelectWard={(id) => setSelectedWardId(id)}
         language={language}
-        onSelectLanguage={setLanguage}
+        onSelectLanguage={(lang) => setLanguage(lang)}
         isAdminMode={isAdminMode}
         onToggleAdmin={() => setIsAdminMode(!isAdminMode)}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
       />
 
-      {/* Command Palette Keyboard Navigator */}
+      {/* Global Command Palette (⌘K) */}
       <CommandPalette
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
@@ -258,215 +250,206 @@ export function App() {
           <AdminDashboard />
         </main>
       ) : (
-        <main className="flex-1 flex flex-col max-w-4xl w-full mx-auto px-4 pt-4 pb-36 relative z-10">
+        <main className="flex-1 flex flex-col max-w-5xl w-full mx-auto px-4 pt-4 pb-36 relative z-10">
           {/* Hero State (When chat has just started) */}
           {messages.length <= 1 && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
-              className="my-auto py-4"
+              className="my-auto py-2"
             >
               <TypewriterHero onSelectQuery={(q) => handleSubmit(q)} />
 
-              {/* 4 Feature Service Cards with Scroll Fade/Appear */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 max-w-3xl mx-auto my-6 px-2">
+              {/* 21st.dev-Inspired Liquid Glass Bento Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto my-6 px-2">
+                {/* Bento Card 1: Wide (Span 2) - Automated Statutory Triage */}
                 <motion.div
-                  initial={{ opacity: 0, y: 24 }}
+                  initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.45, delay: 0.05 }}
-                  whileHover={{ y: -3, scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  onClick={() => handleSubmit('What is the early bird 10% rebate for Property Tax in Ward 4?')}
-                  className="glass-card-interactive p-4 rounded-2xl cursor-pointer group border border-slate-800 hover:border-emerald-500/40 relative overflow-hidden"
+                  whileHover={{ y: -2 }}
+                  onClick={() => handleSubmit('Report water pipe burst with contaminated water')}
+                  className="md:col-span-2 liquid-glass p-5 rounded-2xl cursor-pointer group border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform shrink-0">
-                      <Home className="w-5 h-5" />
+                  <div>
+                    <div className="flex items-center justify-between text-zinc-400 mb-3">
+                      <div className="flex items-center gap-2">
+                        <FileCheck2 className="w-4 h-4 text-zinc-300" />
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                          Statutory SLA Triage Engine
+                        </span>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-zinc-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                     </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors font-display">
-                        Property Tax & 10% Rebate
-                      </h3>
-                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                        Official calculation formula, early bird deadlines, and online receipt verification.
-                      </p>
+                    <h3 className="text-base font-bold text-white group-hover:text-zinc-200 transition-colors font-display mb-1.5">
+                      Automated Grievance Classification & Docketing
+                    </h3>
+                    <p className="text-xs text-zinc-400 leading-relaxed max-w-lg mb-4">
+                      Categorizes complaints across 10 municipal departments, computes statutory SLA countdowns (4h emergency to 48h civil), and generates official verifiable dockets.
+                    </p>
+                  </div>
+
+                  {/* Simulated Docket Capsule */}
+                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+                    <div className="flex items-center gap-2 text-zinc-300">
+                      <Hash className="w-3.5 h-3.5 text-zinc-500" />
+                      <span>MCGM-2026-W04-7492</span>
                     </div>
+                    <div className="flex items-center gap-2 text-zinc-400">
+                      <Clock className="w-3.5 h-3.5 text-zinc-500" />
+                      <span>SLA: 4h Dispatch</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded bg-white/[0.05] text-zinc-300 border border-white/10 text-[10px]">
+                      Water Supply & Sewerage
+                    </span>
                   </div>
                 </motion.div>
 
+                {/* Bento Card 2: Deterministic Hybrid RRF Gazette Grounding */}
                 <motion.div
-                  initial={{ opacity: 0, y: 24 }}
+                  initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.45, delay: 0.15 }}
-                  whileHover={{ y: -3, scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  onClick={() => handleSubmit('Report water pipe burst with contaminated water')}
-                  className="glass-card-interactive p-4 rounded-2xl cursor-pointer group border border-slate-800 hover:border-cyan-500/40 relative overflow-hidden"
+                  whileHover={{ y: -2 }}
+                  onClick={() => handleSubmit('What is the early bird 10% rebate for Property Tax in Ward 4?')}
+                  className="liquid-glass p-5 rounded-2xl cursor-pointer group border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform shrink-0">
-                      <Droplets className="w-5 h-5" />
+                  <div>
+                    <div className="flex items-center justify-between text-zinc-400 mb-3">
+                      <div className="flex items-center gap-2">
+                        <Scale className="w-4 h-4 text-zinc-300" />
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                          Deterministic Core
+                        </span>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-zinc-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                     </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors font-display">
-                        Water Supply & 4h SLA Dispatch
-                      </h3>
-                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                        Direct pipeline burst reporting with emergency docket generation and field escalation.
-                      </p>
-                    </div>
+                    <h3 className="text-base font-bold text-white group-hover:text-zinc-200 transition-colors font-display mb-1.5">
+                      Property Tax & 10% Rebate Formula
+                    </h3>
+                    <p className="text-xs text-zinc-400 leading-relaxed mb-4">
+                      Section 128 calculations, early bird payment deadlines, and verified statutory receipt procedures.
+                    </p>
+                  </div>
+                  <div className="text-[11px] font-mono text-zinc-400 group-hover:text-zinc-200 flex items-center gap-1 transition-colors">
+                    <span>Inspect Section 128 Rules</span>
+                    <ArrowRight className="w-3 h-3" />
                   </div>
                 </motion.div>
 
+                {/* Bento Card 3: Disaster & Life-Safety Interceptor */}
                 <motion.div
-                  initial={{ opacity: 0, y: 24 }}
+                  initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.45, delay: 0.25 }}
-                  whileHover={{ y: -3, scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  onClick={() => handleSubmit('What are the penalties for open garbage dumping under 2026 rules?')}
-                  className="glass-card-interactive p-4 rounded-2xl cursor-pointer group border border-slate-800 hover:border-amber-500/40 relative overflow-hidden"
+                  whileHover={{ y: -2 }}
+                  onClick={() => handleSubmit('Emergency: Building wall collapsed with live wires on street')}
+                  className="liquid-glass p-5 rounded-2xl cursor-pointer group border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform shrink-0">
-                      <Trash2 className="w-5 h-5" />
+                  <div>
+                    <div className="flex items-center justify-between text-zinc-400 mb-3">
+                      <div className="flex items-center gap-2">
+                        <ShieldAlert className="w-4 h-4 text-rose-400" />
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-rose-400/90">
+                          &lt;5ms Pre-Gate
+                        </span>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-zinc-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                     </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white group-hover:text-amber-300 transition-colors font-display">
-                        Sanitation & Waste Bylaws
-                      </h3>
-                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                        Source segregation guidelines, commercial bulk penalties, and ward collection timings.
-                      </p>
-                    </div>
+                    <h3 className="text-base font-bold text-white group-hover:text-zinc-200 transition-colors font-display mb-1.5">
+                      Life-Safety Emergency Interceptor
+                    </h3>
+                    <p className="text-xs text-zinc-400 leading-relaxed mb-4">
+                      Deterministic gates intercept building collapses, gas leaks, and live wire snaps before running vector search.
+                    </p>
+                  </div>
+                  <div className="text-[11px] font-mono text-zinc-400 group-hover:text-rose-300 flex items-center gap-1 transition-colors">
+                    <span>Simulate Safety Trigger</span>
+                    <ArrowRight className="w-3 h-3" />
                   </div>
                 </motion.div>
 
+                {/* Bento Card 4: Wide (Span 2) - Urban Planning & OBPAS */}
                 <motion.div
-                  initial={{ opacity: 0, y: 24 }}
+                  initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.45, delay: 0.35 }}
-                  whileHover={{ y: -3, scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
+                  whileHover={{ y: -2 }}
                   onClick={() => handleSubmit('What are the setbacks and approval SLAs for building plan permission?')}
-                  className="glass-card-interactive p-4 rounded-2xl cursor-pointer group border border-slate-800 hover:border-purple-500/40 relative overflow-hidden"
+                  className="md:col-span-2 liquid-glass p-5 rounded-2xl cursor-pointer group border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform shrink-0">
-                      <Building className="w-5 h-5" />
+                  <div>
+                    <div className="flex items-center justify-between text-zinc-400 mb-3">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-zinc-300" />
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                          Town Planning & Permissions
+                        </span>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-zinc-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                     </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white group-hover:text-purple-300 transition-colors font-display">
-                        Building Plan Approvals (OBPAS)
-                      </h3>
-                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                        Section 14(b) statutory setback standards, auto-DCR fees, and occupancy clearances.
-                      </p>
-                    </div>
+                    <h3 className="text-base font-bold text-white group-hover:text-zinc-200 transition-colors font-display mb-1.5">
+                      Building Plan Approvals (OBPAS) & Section 14(b) Standards
+                    </h3>
+                    <p className="text-xs text-zinc-400 leading-relaxed max-w-lg mb-4">
+                      Official statutory setback standards, auto-DCR scrutinies, occupancy certificates, and 30-day clearance SLAs for residential plots.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-zinc-400 pt-2 border-t border-white/[0.06] font-mono">
+                    <span className="flex items-center gap-1.5">
+                      <Compass className="w-3.5 h-3.5 text-zinc-400" />
+                      <span>Verified Against 2026 Building Bylaws</span>
+                    </span>
+                    <span className="group-hover:text-white transition-colors flex items-center gap-1">
+                      <span>Query Setback Rules</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </span>
                   </div>
                 </motion.div>
               </div>
-
-              {/* Municipal Operational Guarantee on Scroll */}
-              <motion.div
-                initial={{ opacity: 0, y: 28 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-40px' }}
-                transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-                className="max-w-3xl mx-auto my-6 px-2"
-              >
-                <div className="glass-card rounded-2xl p-5 border border-slate-800/90 relative overflow-hidden">
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-800">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_#34d399]" />
-                      <span className="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider">
-                        Municipal Verification Architecture
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20 font-bold">
-                      100% Deterministic Grounding
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80">
-                      <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold mb-1">
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        <span>Statutory Gazettes</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
-                        Retrieves exclusively from indexed municipal acts with real-time statutory section citations.
-                      </p>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80">
-                      <div className="flex items-center gap-1.5 text-cyan-400 text-xs font-bold mb-1">
-                        <Zap className="w-3.5 h-3.5" />
-                        <span>&lt;5ms Emergency Gate</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
-                        Deterministic safety pre-gates intercept life hazards immediately before running vector retrieval.
-                      </p>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80">
-                      <div className="flex items-center gap-1.5 text-amber-400 text-xs font-bold mb-1">
-                        <Cpu className="w-3.5 h-3.5" />
-                        <span>Free-Tier Resilience</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
-                        Autonomous multi-model failover from Gemini 3.7 to Gemini 3.5 Lite and Llama 3.3 for 100% uptime.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
             </motion.div>
           )}
 
           {/* Quick Municipal Action Pills (Sticky Scroll Bar) */}
           {messages.length > 1 && (
-            <div className="no-print flex items-center justify-between gap-2 py-2 mb-3 border-b border-slate-800/80">
+            <div className="no-print flex items-center justify-between gap-2 py-2 mb-3 border-b border-white/[0.08]">
               <div className="flex items-center gap-2 overflow-x-auto text-xs scrollbar-none py-1">
                 <button
-                  onClick={() => handleSubmit('What is the early bird 10% rebate for Property Tax?')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-card hover:border-emerald-500/40 text-slate-300 hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
+                  onClick={() => handleSubmit('What is the early bird 10% rebate for Property Tax in Ward 4?')}
+                  className="liquid-glass-pill px-3 py-1.5 rounded-full text-zinc-300 hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
                 >
-                  <Home className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Tax 10% Rebate</span>
+                  Property Tax 10% Rebate
                 </button>
                 <button
                   onClick={() => handleSubmit('Report water pipe burst with contaminated water')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-card hover:border-cyan-500/40 text-slate-300 hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
+                  className="liquid-glass-pill px-3 py-1.5 rounded-full text-zinc-300 hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
                 >
-                  <Droplets className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Report Water Burst</span>
+                  Report Water Burst (4h SLA)
                 </button>
                 <button
-                  onClick={() => handleSubmit('What are the penalties for open garbage dumping?')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-card hover:border-amber-500/40 text-slate-300 hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
+                  onClick={() => handleSubmit('What are the penalties for open garbage dumping under 2026 rules?')}
+                  className="liquid-glass-pill px-3 py-1.5 rounded-full text-zinc-300 hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
                 >
-                  <Trash2 className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Waste Penalties</span>
+                  Sanitation Bylaw Fines
                 </button>
                 <button
-                  onClick={() => handleSubmit('What are the setbacks for residential building approval?')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-card hover:border-purple-500/40 text-slate-300 hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
+                  onClick={() => handleSubmit('What are the setbacks and approval SLAs for building plan permission?')}
+                  className="liquid-glass-pill px-3 py-1.5 rounded-full text-zinc-300 hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
                 >
-                  <Building className="w-3.5 h-3.5 text-purple-400" />
-                  <span>Building Permits</span>
+                  Building Plan Permits (OBPAS)
                 </button>
               </div>
 
               {/* Reset Chat Button */}
               <button
                 onClick={handleResetChat}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors text-xs shrink-0 cursor-pointer"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] transition-colors text-xs shrink-0 cursor-pointer"
                 title="Clear current session"
               >
                 <RotateCcw className="w-3 h-3" />
@@ -475,22 +458,22 @@ export function App() {
             </div>
           )}
 
-          {/* Conversation Stream with Framer Motion on Appear */}
-          <div className="flex-1 space-y-5">
+          {/* Conversation Stream with Liquid Glass Styling */}
+          <div className="flex-1 space-y-4">
             <AnimatePresence initial={false}>
               {messages.map((msg) => (
                 <motion.div
                   key={msg.id}
-                  initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                  initial={{ opacity: 0, y: 14, scale: 0.98 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                   className={`flex gap-3 text-sm ${
                     msg.role === 'user' ? 'justify-end' : 'justify-start'
                   }`}
                 >
                   {/* Assistant Avatar */}
                   {msg.role === 'assistant' && (
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20 text-xs font-bold border border-emerald-400/30">
+                    <div className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/10 text-zinc-300 flex items-center justify-center shrink-0 shadow-sm text-xs font-mono">
                       <Bot className="w-4 h-4" />
                     </div>
                   )}
@@ -499,27 +482,27 @@ export function App() {
                   <div
                     className={`max-w-[90%] sm:max-w-[82%] rounded-2xl p-4 sm:p-5 shadow-xl ${
                       msg.role === 'user'
-                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-tr-xs shadow-emerald-950/40 border border-emerald-400/20'
-                        : 'glass-card border border-slate-700/70 text-slate-100 rounded-tl-xs shadow-2xl backdrop-blur-2xl'
+                        ? 'bg-zinc-800 text-zinc-100 rounded-tr-xs border border-white/10 shadow-md'
+                        : 'liquid-glass border border-white/[0.08] text-zinc-100 rounded-tl-xs shadow-xl backdrop-blur-2xl'
                     }`}
                   >
                     {/* Status Indicator */}
                     {msg.statusText && (
-                      <div className="flex items-center gap-2 text-xs text-emerald-400 font-semibold mb-2.5 animate-pulse">
-                        <Sparkles className="w-3.5 h-3.5" />
+                      <div className="flex items-center gap-2 text-xs text-zinc-400 font-mono mb-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 animate-pulse" />
                         <span>{msg.statusText}</span>
                       </div>
                     )}
 
                     {/* Text Content with Secure Markdown Renderer */}
-                    <div className="leading-relaxed">
+                    <div className="leading-relaxed text-zinc-200">
                       {msg.role === 'user' ? (
                         <div className="whitespace-pre-wrap font-medium">{msg.content}</div>
                       ) : (
                         <div>
                           {renderSecureCivicText(msg.content)}
                           {isStreaming && msg.role === 'assistant' && msg.id === messages[messages.length - 1]?.id && (
-                            <span className="inline-block w-2 h-4 ml-1.5 bg-emerald-400 animate-pulse rounded-xs align-middle shadow-[0_0_8px_#34d399]" />
+                            <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-zinc-200 animate-pulse rounded-xs align-middle" />
                           )}
                         </div>
                       )}
@@ -547,10 +530,10 @@ export function App() {
 
                     {/* Official Verified Evidence Rail */}
                     {msg.citations && msg.citations.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-slate-700/60 flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] uppercase font-bold text-slate-400 mr-1 font-mono tracking-wider flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                          Verified Sources:
+                      <div className="mt-4 pt-3 border-t border-white/[0.06] flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] uppercase font-bold text-zinc-400 mr-1 font-mono tracking-wider flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-zinc-400" />
+                          Verified Citations:
                         </span>
                         {msg.citations.map((c) => (
                           <CitationChip key={c.index} citation={c} />
@@ -559,10 +542,10 @@ export function App() {
                     )}
 
                     {/* Footer Timestamp & Model Badge */}
-                    <div className="mt-3 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                    <div className="mt-3 flex items-center justify-between text-[10px] text-zinc-400 font-mono">
                       <span>{msg.timestamp}</span>
                       {msg.modelUsed && (
-                        <span className="text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                        <span className="text-zinc-400 bg-white/[0.04] border border-white/[0.08] px-2 py-0.5 rounded font-mono text-[10px]">
                           {msg.modelUsed}
                         </span>
                       )}
@@ -571,8 +554,8 @@ export function App() {
 
                   {/* User Avatar */}
                   {msg.role === 'user' && (
-                    <div className="w-9 h-9 rounded-xl bg-slate-800 text-white flex items-center justify-center shrink-0 shadow-md border border-slate-700">
-                      <User className="w-4 h-4 text-emerald-400" />
+                    <div className="w-8 h-8 rounded-lg bg-white/[0.03] text-zinc-400 flex items-center justify-center shrink-0 border border-white/[0.08]">
+                      <User className="w-4 h-4" />
                     </div>
                   )}
                 </motion.div>
@@ -583,41 +566,41 @@ export function App() {
         </main>
       )}
 
-      {/* Floating Futuristic Input Dock (Citizen Mode) */}
+      {/* Floating Liquid Glass Input Dock (Citizen Mode) */}
       {!isAdminMode && (
-        <div className="no-print fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#090E17] via-[#090E17]/95 to-transparent z-40">
+        <div className="no-print fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#08090D] via-[#08090D]/90 to-transparent z-40">
           <div className="max-w-4xl mx-auto">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSubmit();
               }}
-              className="flex items-center gap-2 p-2 glass-card rounded-2xl shadow-2xl border border-slate-700/80 focus-within:border-emerald-500/80 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all backdrop-blur-2xl"
+              className="flex items-center gap-2 p-2 liquid-glass rounded-2xl shadow-2xl border border-white/10 focus-within:border-white/20 transition-all backdrop-blur-2xl"
             >
               {/* Voice Speech Recognition Button */}
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
                 type="button"
                 onClick={startListening}
                 className={`p-2.5 rounded-xl transition-all cursor-pointer ${
                   isListening
-                    ? 'bg-red-600 text-white animate-pulse shadow-lg shadow-red-600/30'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    ? 'bg-white text-zinc-950 shadow-md font-semibold'
+                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.06]'
                 }`}
                 title="Speak in your regional language (English, Hindi, Marathi, etc.)"
               >
                 {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </motion.button>
 
-              {/* Soundwave Pulse Indicator */}
+              {/* Minimalist Soundwave Indicator (No Neon) */}
               {isListening && (
                 <div className="flex items-center gap-0.5 px-2">
-                  <span className="w-1 bg-red-500 rounded-full animate-wave-1" />
-                  <span className="w-1 bg-red-500 rounded-full animate-wave-2" />
-                  <span className="w-1 bg-red-500 rounded-full animate-wave-3" />
-                  <span className="w-1 bg-red-500 rounded-full animate-wave-4" />
-                  <span className="w-1 bg-red-500 rounded-full animate-wave-5" />
+                  <span className="w-0.5 bg-zinc-300 rounded-full animate-wave-1" />
+                  <span className="w-0.5 bg-zinc-300 rounded-full animate-wave-2" />
+                  <span className="w-0.5 bg-zinc-300 rounded-full animate-wave-3" />
+                  <span className="w-0.5 bg-zinc-300 rounded-full animate-wave-4" />
+                  <span className="w-0.5 bg-zinc-300 rounded-full animate-wave-5" />
                 </div>
               )}
 
@@ -632,19 +615,19 @@ export function App() {
                     : 'Ask about property tax, water bills, building permits, or report a civic issue...'
                 }
                 disabled={isStreaming}
-                className="flex-1 bg-transparent px-3 text-sm text-white placeholder-slate-400 focus:outline-none font-medium"
+                className="flex-1 bg-transparent px-3 text-sm text-white placeholder-zinc-500 focus:outline-none font-medium"
               />
 
               {/* TTS Speech Synthesis Audio Toggle */}
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
                 type="button"
                 onClick={() => setIsTTSEnabled(!isTTSEnabled)}
                 className={`p-2 rounded-xl transition-colors cursor-pointer ${
                   isTTSEnabled
-                    ? 'text-emerald-400 bg-emerald-500/15 border border-emerald-500/30'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    ? 'text-white bg-white/[0.1] border border-white/20'
+                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.06]'
                 }`}
                 title={isTTSEnabled ? 'Audio Response Enabled' : 'Enable Audio Response'}
               >
@@ -653,20 +636,20 @@ export function App() {
 
               {/* Send Button */}
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
                 type="submit"
                 disabled={!inputQuery.trim() || isStreaming}
-                className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 disabled:hover:from-emerald-600 disabled:hover:to-teal-600 text-white shadow-lg shadow-emerald-600/30 transition-all cursor-pointer"
+                className="p-2.5 rounded-xl bg-white hover:bg-zinc-200 disabled:opacity-30 disabled:hover:bg-white text-zinc-950 font-semibold shadow-sm transition-all cursor-pointer"
               >
                 <Send className="w-4 h-4" />
               </motion.button>
             </form>
 
             {/* Bottom Status Ticker */}
-            <div className="flex items-center justify-between px-3 pt-2 text-[10px] text-slate-400 font-mono">
+            <div className="flex items-center justify-between px-3 pt-2 text-[10px] text-zinc-500 font-mono">
               <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/80" />
                 <span>2026 Municipal Gazettes Verified</span>
               </span>
               <span className="hidden sm:inline font-mono">Press ⌘K for Instant Services</span>
