@@ -1,3 +1,41 @@
-pandas
-numpy
-fastapi
+# ==============================================================================
+# 🏛️ Nagrik AI (नागरिक AI) - Production Backend Dependencies
+# Free-Tier Cloud Architecture & Zero-Slop Civic Decision Support
+# ==============================================================================
+
+# Core Web Framework & Asynchronous ASGI Server
+fastapi>=0.142.2
+uvicorn[standard]>=0.54.0
+
+# Type-Safe Configuration & Environment Validation
+pydantic-settings>=2.15.0
+
+# Hybrid Vector Search (Server-side RRF & Local In-Memory / Cloud)
+qdrant-client>=1.19.1
+fastembed>=0.8.1
+
+# Multi-Tier LLM Resiliency Engine & Audio Ingress
+google-genai>=2.26.0          # Primary: Gemini 3.7 Flash | Secondary: Gemini 3.5 Flash Lite
+groq>=1.7.0                   # Tertiary: Llama 3.3 70B | Speech STT: Whisper Large v3
+
+# Relational Persistence & Citizen Auth
+supabase>=2.31.0              # Cloud PostgreSQL Dual-Mode Persistence
+pyjwt>=2.10.0                 # JWT Token Decoding & Authentication
+
+# Real-Time SSE Streaming & Ingress
+sse-starlette>=3.5.0          # Server-Sent Events (SSE) Stream Handling
+python-multipart>=0.0.32      # Audio & File Upload Parsing
+
+# Distributed Observability & PII-Redacted Tracing
+langfuse>=4.16.0              # Production Telemetry & Request Tracing
+
+# Asynchronous HTTP Client
+httpx>=0.28.1                 # ASGI Testing & Async External API Calls
+
+# Executive Analytics & Statistical Alert Thresholds (2σ Deviation)
+numpy>=2.0.0
+pandas>=2.0.0
+
+# Testing & Quality Assurance
+pytest>=9.1.1
+pytest-asyncio>=1.4.0

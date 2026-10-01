@@ -17,3 +17,13 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Local persistent databases & vector stores
+data/nagrik_local.db
+data/qdrant_local/
+
+# Frontend dependencies & build artifacts
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.pytest_cache/
