@@ -24,6 +24,8 @@ export interface StreamCallbacks {
   onDone?: () => void;
 }
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
 export async function streamChatQuery(
   query: string,
   wardId: number | null,
@@ -32,7 +34,7 @@ export async function streamChatQuery(
   abortController: AbortController
 ) {
   try {
-    await fetchEventSource('/api/v1/chat/stream', {
+    await fetchEventSource(`${API_BASE}/api/v1/chat/stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -102,25 +104,25 @@ export async function streamChatQuery(
 
 // REST Endpoints
 export async function fetchWards(): Promise<MunicipalWard[]> {
-  const res = await fetch('/api/v1/wards/');
+  const res = await fetch(`${API_BASE}/api/v1/wards/`);
   if (!res.ok) throw new Error('Failed to fetch wards');
   return res.json();
 }
 
 export async function fetchWardHeatmap(): Promise<{ city_total_grievances: number; wards: WardHeatmapStat[] }> {
-  const res = await fetch('/api/v1/admin/heatmap');
+  const res = await fetch(`${API_BASE}/api/v1/admin/heatmap`);
   if (!res.ok) throw new Error('Failed to fetch admin heatmap');
   return res.json();
 }
 
 export async function fetchSLAStatus(): Promise<SLAStatusData> {
-  const res = await fetch('/api/v1/admin/sla-status');
+  const res = await fetch(`${API_BASE}/api/v1/admin/sla-status`);
   if (!res.ok) throw new Error('Failed to fetch SLA analytics');
   return res.json();
 }
 
 export async function fetchAdminFAQs(): Promise<any> {
-  const res = await fetch('/api/v1/admin/faqs');
+  const res = await fetch(`${API_BASE}/api/v1/admin/faqs`);
   if (!res.ok) throw new Error('Failed to fetch FAQ analytics');
   return res.json();
 }

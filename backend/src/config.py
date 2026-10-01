@@ -28,6 +28,7 @@ class Settings(BaseSettings):
         "https://nagrik-ai.vercel.app",
         "https://nagrik-ai.onrender.com",
     ]
+    CORS_URL: str = ""
 
     # Primary & Secondary LLM Models (Google Gemini & Groq Fallback)
     GEMINI_API_KEY: str = ""
