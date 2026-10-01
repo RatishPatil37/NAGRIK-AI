@@ -51,12 +51,16 @@ class DatabaseAdapter:
         if self._use_supabase:
             try:
                 from supabase import create_client
-                self._supabase_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY)
+                client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY)
+                # Verify that tables are created in Supabase
+                client.table("municipal_wards").select("ward_id").limit(1).execute()
+                self._supabase_client = client
                 self._initialized = True
+                print("[DatabaseAdapter] Supabase PostgreSQL connected and verified.")
                 return
             except Exception as e:
                 # Log and fallback to SQLite
-                print(f"[DatabaseAdapter] Supabase connection failed: {e}. Falling back to SQLite.")
+                print(f"[DatabaseAdapter] Supabase table check failed ({e}). Falling back to local SQLite.")
                 self._use_supabase = False
 
         # SQLite Initialization
