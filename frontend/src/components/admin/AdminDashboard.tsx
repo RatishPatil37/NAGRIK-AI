@@ -1,14 +1,20 @@
-import { useState, useEffect, type FC } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   Flame,
   RefreshCw,
   FileQuestion,
+  ShieldAlert,
+  Activity,
+  BarChart3,
+  Layers,
+  Clock,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { fetchAdminFAQs, fetchSLAStatus, fetchWardHeatmap } from '../../lib/api';
 import type { SLAStatusData, WardHeatmapStat } from '../../types';
 
-export const AdminDashboard: FC = () => {
+export const AdminDashboard: React.FC = () => {
   const [heatmap, setHeatmap] = useState<WardHeatmapStat[]>([]);
   const [slaData, setSlaData] = useState<SLAStatusData | null>(null);
   const [faqData, setFaqData] = useState<any>(null);
@@ -39,279 +45,340 @@ export const AdminDashboard: FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const totalGrievances = heatmap.reduce((acc, w) => acc + w.total_grievances, 0);
+  const redAlertCount = heatmap.filter((w) => w.alert_level === 'red_alert').length;
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Top Header & Actions */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-slate-200">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-800"
+      >
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-              Executive Decision Support Command Center
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-display">
+              Municipal Command & Decision Support
             </h1>
-            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-              Ward Officer Telemetry
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 uppercase tracking-wider font-mono">
+              Live Telemetry
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Real-time spatial grievance heatmaps, SLA breach countdowns, and automated policy knowledge gap radar.
+          <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-3xl leading-relaxed">
+            Real-time spatial grievance heatmaps with 2-sigma anomaly detection, statutory SLA breach monitors, and automated policy knowledge-gap radars.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={loadData}
-            disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
-        </div>
-      </div>
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={loadData}
+          disabled={isLoading}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl glass-card hover:border-emerald-500/50 text-slate-200 text-xs font-semibold shadow-lg transition-all cursor-pointer"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isLoading ? 'animate-spin' : ''}`} />
+          <span>Sync Telemetry</span>
+        </motion.button>
+      </motion.div>
 
       {/* Metric Highlights Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 my-5">
-        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-            Citywide Active Tickets
-          </span>
-          <div className="text-2xl font-bold text-slate-900 mt-1">
-            {heatmap.reduce((acc, w) => acc + w.total_grievances, 0)}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 my-6">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="p-5 rounded-2xl glass-card border border-slate-800 relative overflow-hidden"
+        >
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider font-display">Active Dockets</span>
+            <Activity className="w-4 h-4 text-emerald-400" />
           </div>
-          <span className="text-[10px] text-emerald-600 font-medium">10 Municipal Wards Active</span>
-        </div>
-
-        <div className="p-4 rounded-xl bg-white border border-red-200 shadow-xs">
-          <span className="text-[11px] font-semibold text-red-600 uppercase tracking-wider block">
-            Critical / Breached SLAs
+          <div className="text-3xl font-extrabold text-white font-display">{totalGrievances}</div>
+          <span className="text-[11px] text-emerald-400/90 font-medium mt-1 block">
+            10 Municipal Wards Active
           </span>
-          <div className="text-2xl font-bold text-red-700 mt-1">
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="p-5 rounded-2xl glass-card border border-red-500/30 relative overflow-hidden"
+        >
+          <div className="flex items-center justify-between text-red-400 mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider font-display">Critical / Breached</span>
+            <ShieldAlert className="w-4 h-4 text-red-400 animate-pulse" />
+          </div>
+          <div className="text-3xl font-extrabold text-red-400 font-display">
             {(slaData?.summary.breached_count || 0) + (slaData?.summary.critical_count || 0)}
           </div>
-          <span className="text-[10px] text-red-500 font-medium">Immediate field intervention required</span>
-        </div>
-
-        <div className="p-4 rounded-xl bg-white border border-amber-200 shadow-xs">
-          <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider block">
-            High Density Alert Wards
+          <span className="text-[11px] text-red-300/80 font-medium mt-1 block">
+            Field Dispatch Action Required
           </span>
-          <div className="text-2xl font-bold text-amber-800 mt-1">
-            {heatmap.filter((w) => w.alert_level === 'red_alert').length}
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="p-5 rounded-2xl glass-card border border-amber-500/30 relative overflow-hidden"
+        >
+          <div className="flex items-center justify-between text-amber-400 mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider font-display">&gt;2σ Anomaly Wards</span>
+            <Flame className="w-4 h-4 text-amber-400 animate-bounce" />
           </div>
-          <span className="text-[10px] text-amber-600 font-medium">Exceeds 2σ of municipal baseline</span>
-        </div>
-
-        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-            Knowledge Gaps Detected
+          <div className="text-3xl font-extrabold text-amber-300 font-display">{redAlertCount}</div>
+          <span className="text-[11px] text-amber-300/80 font-medium mt-1 block">
+            Exceeds 2σ Citywide Baseline
           </span>
-          <div className="text-2xl font-bold text-slate-900 mt-1">
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="p-5 rounded-2xl glass-card border border-cyan-500/30 relative overflow-hidden"
+        >
+          <div className="flex items-center justify-between text-cyan-400 mb-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider font-display">Knowledge Gaps</span>
+            <FileQuestion className="w-4 h-4 text-cyan-400" />
+          </div>
+          <div className="text-3xl font-extrabold text-cyan-300 font-display">
             {faqData?.knowledge_gaps?.length || 2}
           </div>
-          <span className="text-[10px] text-blue-600 font-medium">Missing policy gazettes</span>
-        </div>
+          <span className="text-[11px] text-cyan-300/80 font-medium mt-1 block">
+            Circular Update Advisories
+          </span>
+        </motion.div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-200 mb-6 gap-2">
+      <div className="flex border-b border-slate-800 mb-6 gap-3">
         <button
           onClick={() => setActiveTab('heatmap')}
-          className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer ${
+          className={`pb-3 px-4 text-xs font-bold tracking-wide transition-all cursor-pointer border-b-2 flex items-center gap-2 ${
             activeTab === 'heatmap'
-              ? 'border-emerald-600 text-emerald-800'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-emerald-400 text-emerald-300'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
         >
-          Spatial Ward Heatmap (2σ Alerting)
+          <BarChart3 className="w-4 h-4" />
+          <span>Spatial Ward Heatmap (2σ Alerting)</span>
         </button>
         <button
           onClick={() => setActiveTab('sla')}
-          className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer ${
+          className={`pb-3 px-4 text-xs font-bold tracking-wide transition-all cursor-pointer border-b-2 flex items-center gap-2 ${
             activeTab === 'sla'
-              ? 'border-emerald-600 text-emerald-800'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-emerald-400 text-emerald-300'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
         >
-          SLA Countdown & Breach Monitor
+          <Clock className="w-4 h-4" />
+          <span>SLA Countdown & Breach Queue</span>
         </button>
         <button
           onClick={() => setActiveTab('faqs')}
-          className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer ${
+          className={`pb-3 px-4 text-xs font-bold tracking-wide transition-all cursor-pointer border-b-2 flex items-center gap-2 ${
             activeTab === 'faqs'
-              ? 'border-emerald-600 text-emerald-800'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
+              ? 'border-emerald-400 text-emerald-300'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
           }`}
         >
-          Trending Citizen FAQs & Knowledge Gaps
+          <Layers className="w-4 h-4" />
+          <span>Trending Citizen FAQs & Policy Gaps</span>
         </button>
       </div>
 
-      {/* Tab 1: Spatial Ward Heatmap */}
-      {activeTab === 'heatmap' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {heatmap.map((w) => (
-              <div
-                key={w.ward_id}
-                className={`p-4 rounded-xl border transition-all ${
-                  w.alert_level === 'red_alert'
-                    ? 'bg-red-50/70 border-red-300 shadow-md ring-1 ring-red-400'
-                    : w.alert_level === 'warning'
-                    ? 'bg-amber-50/50 border-amber-200'
-                    : 'bg-white border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div>
-                    <h3 className="font-bold text-xs text-slate-900">{w.ward_name}</h3>
-                    <p className="text-[11px] text-slate-500">{w.zone_name}</p>
-                  </div>
-                  {w.alert_level === 'red_alert' ? (
-                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-600 text-white animate-pulse">
-                      <Flame className="w-3 h-3" />
-                      &gt;2σ Alert
-                    </span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600">
-                      Normal
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between text-xs py-2 border-t border-slate-100">
-                  <span className="text-slate-500">Grievance Rate:</span>
-                  <span className="font-bold font-mono text-slate-900">
-                    {w.rate_per_1000} / 1k residents
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-xs py-1 text-slate-600">
-                  <span className="text-slate-500">Active Officer:</span>
-                  <span className="font-medium text-slate-800">{w.officer_name || 'Assigned'}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Tab 2: SLA Countdown Monitor */}
-      {activeTab === 'sla' && slaData && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="p-3.5 rounded-xl bg-red-100/70 border border-red-300 text-red-900">
-              <span className="text-[10px] uppercase font-bold tracking-wider">Breached SLAs</span>
-              <div className="text-xl font-bold mt-1">{slaData.summary.breached_count}</div>
-            </div>
-            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800">
-              <span className="text-[10px] uppercase font-bold tracking-wider">Critical (&lt;4 Hours)</span>
-              <div className="text-xl font-bold mt-1">{slaData.summary.critical_count}</div>
-            </div>
-            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800">
-              <span className="text-[10px] uppercase font-bold tracking-wider">Warning (4-12 Hours)</span>
-              <div className="text-xl font-bold mt-1">{slaData.summary.warning_count}</div>
-            </div>
-            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800">
-              <span className="text-[10px] uppercase font-bold tracking-wider">On Schedule (&gt;12h)</span>
-              <div className="text-xl font-bold mt-1">{slaData.summary.normal_count}</div>
-            </div>
-          </div>
-
-          {/* Active Tickets List */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-            <div className="px-4 py-3 border-b border-slate-200 font-semibold text-xs text-slate-800">
-              Live Grievance Dispatch Queue & Countdown Timers
-            </div>
-            <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
-              {[
-                ...slaData.details.breached,
-                ...slaData.details.critical,
-                ...slaData.details.warning,
-                ...slaData.details.normal,
-              ].map((item, idx) => (
-                <div key={idx} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50">
-                  <div className="flex items-center gap-3">
-                    <span className="w-6 h-6 rounded bg-slate-900 text-white font-bold text-[10px] flex items-center justify-center">
-                      {item.dept_code}
-                    </span>
+      <AnimatePresence mode="wait">
+        {/* Tab 1: Spatial Ward Heatmap */}
+        {activeTab === 'heatmap' && (
+          <motion.div
+            key="heatmap"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
+            {heatmap.map((w) => {
+              const isAlert = w.alert_level === 'red_alert';
+              return (
+                <div
+                  key={w.ward_id}
+                  className={`p-5 rounded-2xl glass-card transition-all ${
+                    isAlert
+                      ? 'border-red-500/60 shadow-lg shadow-red-500/10 ring-1 ring-red-500/30'
+                      : 'border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
                     <div>
-                      <div className="font-mono font-bold text-slate-900">{item.ticket_id}</div>
-                      <div className="text-[11px] text-slate-500">{item.category}</div>
+                      <h3 className="font-bold text-sm text-white font-display">{w.ward_name}</h3>
+                      <p className="text-xs text-slate-400">{w.zone_name}</p>
+                    </div>
+                    {isAlert ? (
+                      <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse font-mono">
+                        <Flame className="w-3 h-3 text-red-400" />
+                        &gt;2σ Alert
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-800/80 text-slate-300 border border-slate-700 font-mono">
+                        Nominal
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 py-3 border-t border-slate-800/80 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Total Grievances:</span>
+                      <span className="font-bold text-white font-mono">{w.total_grievances} dockets</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Rate per 1k Residents:</span>
+                      <span className="font-bold text-emerald-400 font-mono">{w.rate_per_1000}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-300 pt-1">
+                      <span className="text-slate-500">Ward Officer:</span>
+                      <span className="font-medium text-slate-200">{w.officer_name || 'Assigned'}</span>
                     </div>
                   </div>
+                </div>
+              );
+            })}
+          </motion.div>
+        )}
 
-                  <div className="flex items-center gap-3">
+        {/* Tab 2: SLA Countdown Monitor */}
+        {activeTab === 'sla' && slaData && (
+          <motion.div
+            key="sla"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
+          >
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="p-4 rounded-xl bg-red-950/40 border border-red-500/40 text-red-300">
+                <span className="text-[10px] uppercase font-bold tracking-wider font-mono">Breached SLAs</span>
+                <div className="text-2xl font-bold mt-1 text-red-400 font-display">{slaData.summary.breached_count}</div>
+              </div>
+              <div className="p-4 rounded-xl bg-red-900/30 border border-red-500/30 text-red-300">
+                <span className="text-[10px] uppercase font-bold tracking-wider font-mono">Critical (&lt;4h)</span>
+                <div className="text-2xl font-bold mt-1 text-red-300 font-display">{slaData.summary.critical_count}</div>
+              </div>
+              <div className="p-4 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-300">
+                <span className="text-[10px] uppercase font-bold tracking-wider font-mono">Warning (4-12h)</span>
+                <div className="text-2xl font-bold mt-1 text-amber-300 font-display">{slaData.summary.warning_count}</div>
+              </div>
+              <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-300">
+                <span className="text-[10px] uppercase font-bold tracking-wider font-mono">On Schedule</span>
+                <div className="text-2xl font-bold mt-1 text-emerald-300 font-display">{slaData.summary.normal_count}</div>
+              </div>
+            </div>
+
+            {/* Active Tickets List */}
+            <div className="glass-card rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+              <div className="px-5 py-4 border-b border-slate-800 font-bold text-xs text-white uppercase tracking-wider font-display">
+                Active Grievance Redressal Dispatch Queue
+              </div>
+              <div className="divide-y divide-slate-800/80 max-h-96 overflow-y-auto">
+                {[
+                  ...slaData.details.breached,
+                  ...slaData.details.critical,
+                  ...slaData.details.warning,
+                  ...slaData.details.normal,
+                ].map((item, idx) => (
+                  <div key={idx} className="p-4 flex items-center justify-between text-xs hover:bg-slate-800/40 transition-colors">
+                    <div className="flex items-center gap-3.5">
+                      <span className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 text-white font-bold text-xs flex items-center justify-center font-mono">
+                        {item.dept_code}
+                      </span>
+                      <div>
+                        <div className="font-mono font-bold text-white text-sm">{item.ticket_id}</div>
+                        <div className="text-xs text-slate-400 mt-0.5">{item.category}</div>
+                      </div>
+                    </div>
+
                     <div className="text-right">
                       <span
-                        className={`text-xs font-bold font-mono ${
+                        className={`text-xs font-bold font-mono px-2.5 py-1 rounded-full ${
                           item.remaining_hours <= 0
-                            ? 'text-red-700 animate-pulse'
+                            ? 'bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse'
                             : item.remaining_hours <= 4
-                            ? 'text-red-600'
-                            : 'text-emerald-700'
+                            ? 'bg-red-500/15 text-red-300 border border-red-500/25'
+                            : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25'
                         }`}
                       >
                         {item.remaining_hours <= 0
                           ? 'SLA BREACHED'
                           : `${item.remaining_hours}h Remaining`}
                       </span>
-                      <div className="text-[10px] text-slate-400">
+                      <div className="text-[10px] text-slate-500 mt-1 font-mono">
                         Target: {new Date(item.deadline).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
 
-      {/* Tab 3: Trending FAQs & Knowledge Gaps */}
-      {activeTab === 'faqs' && faqData && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-            <h3 className="font-bold text-xs text-slate-900 mb-3 flex items-center gap-1.5">
-              <TrendingUp className="w-4 h-4 text-emerald-600" />
-              <span>Trending Citizen Inquiry Clusters</span>
-            </h3>
-            <div className="space-y-2">
-              {faqData.trending_topics?.map((topic: any, idx: number) => (
-                <div key={idx} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-semibold text-slate-800">{topic.topic}</span>
-                    <span className="text-[10px] text-slate-400 block">{topic.department} Department</span>
+        {/* Tab 3: Trending FAQs & Knowledge Gaps */}
+        {activeTab === 'faqs' && faqData && (
+          <motion.div
+            key="faqs"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="grid grid-cols-1 md:grid-cols-2 gap-4"
+          >
+            <div className="glass-card p-5 rounded-2xl border border-slate-800 shadow-xl">
+              <h3 className="font-bold text-sm text-white mb-4 flex items-center gap-2 font-display">
+                <TrendingUp className="w-4 h-4 text-emerald-400" />
+                <span>Trending Citizen Inquiry Clusters</span>
+              </h3>
+              <div className="space-y-2.5">
+                {faqData.trending_topics?.map((topic: any, idx: number) => (
+                  <div key={idx} className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-semibold text-white block">{topic.topic}</span>
+                      <span className="text-[11px] text-slate-400 mt-0.5 block">{topic.department} Department</span>
+                    </div>
+                    <div className="text-right font-mono">
+                      <span className="font-bold text-emerald-400">{topic.trend}</span>
+                      <span className="text-[10px] text-slate-500 block">{topic.inquiry_count} queries</span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="font-bold text-emerald-700">{topic.trend}</span>
-                    <span className="text-[10px] text-slate-500 block">{topic.inquiry_count} queries</span>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-            <h3 className="font-bold text-xs text-slate-900 mb-3 flex items-center gap-1.5">
-              <FileQuestion className="w-4 h-4 text-amber-600" />
-              <span>Automated Knowledge Gap Alerts (RRF &lt; 0.45)</span>
-            </h3>
-            <div className="space-y-2.5">
-              {faqData.knowledge_gaps?.map((gap: any, idx: number) => (
-                <div key={idx} className="p-3 rounded-lg bg-amber-50/60 border border-amber-200 text-xs">
-                  <div className="font-bold text-amber-950 flex items-center justify-between">
-                    <span>"{gap.query_pattern}"</span>
-                    <span className="text-[10px] font-mono bg-amber-200 px-1.5 py-0.5 rounded text-amber-900">
-                      Score: {gap.max_confidence}
-                    </span>
+            <div className="glass-card p-5 rounded-2xl border border-amber-500/30 shadow-xl">
+              <h3 className="font-bold text-sm text-white mb-4 flex items-center gap-2 font-display">
+                <FileQuestion className="w-4 h-4 text-amber-400" />
+                <span>Automated Knowledge Gap Alerts (RRF &lt; 0.45)</span>
+              </h3>
+              <div className="space-y-3">
+                {faqData.knowledge_gaps?.map((gap: any, idx: number) => (
+                  <div key={idx} className="p-4 rounded-xl bg-amber-950/30 border border-amber-500/30 text-xs">
+                    <div className="font-bold text-amber-300 flex items-center justify-between">
+                      <span>"{gap.query_pattern}"</span>
+                      <span className="text-[10px] font-mono bg-amber-500/20 px-2 py-0.5 rounded-md text-amber-200 border border-amber-500/30">
+                        Confidence: {gap.max_confidence}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-2 leading-relaxed">{gap.recommendation}</p>
                   </div>
-                  <p className="text-[11px] text-slate-600 mt-1">{gap.recommendation}</p>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

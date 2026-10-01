@@ -1,5 +1,6 @@
-import { useState, useEffect, type FC } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Droplets, Trash2, Home, Building2, PhoneCall, CheckCircle, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -46,7 +47,7 @@ const COMMANDS = [
   },
 ];
 
-export const CommandPalette: FC<CommandPaletteProps> = ({
+export const CommandPalette: React.FC<CommandPaletteProps> = ({
   isOpen,
   onClose,
   onSelectAction,
@@ -76,69 +77,79 @@ export const CommandPalette: FC<CommandPaletteProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-slate-950/60 backdrop-blur-xs p-4">
-      <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        {/* Input Bar */}
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-200 bg-slate-50">
-          <Search className="w-5 h-5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Type a municipal service, tax rule, or complaint (e.g. water, tax, permit)..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            autoFocus
-            className="w-full bg-transparent text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none"
-          />
-          <button
-            onClick={onClose}
-            className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+    <AnimatePresence>
+      <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-slate-950/80 backdrop-blur-md p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.94, y: -10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.94, y: -10 }}
+          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full max-w-xl glass-card rounded-2xl shadow-2xl border border-slate-700/80 overflow-hidden"
+        >
+          {/* Input Bar */}
+          <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-700/60 bg-slate-900/60">
+            <Search className="w-5 h-5 text-emerald-400 shrink-0" />
+            <input
+              type="text"
+              placeholder="Search municipal service, tax rule, or complaint (e.g. water, tax, permit)..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              autoFocus
+              className="w-full bg-transparent text-sm font-medium text-white placeholder-slate-400 focus:outline-none"
+            />
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
 
-        {/* Command List */}
-        <div className="max-h-96 overflow-y-auto p-2">
-          {filteredCommands.length === 0 ? (
-            <div className="py-8 text-center text-sm text-slate-500">
-              No matching municipal services found. Press Esc to close.
-            </div>
-          ) : (
-            filteredCommands.map((cmd, idx) => {
-              const Icon = cmd.icon;
-              return (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    onSelectAction(cmd.query);
-                    onClose();
-                  }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-100/90 text-left transition-colors group"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-emerald-50 text-slate-600 group-hover:text-emerald-700 flex items-center justify-center shrink-0 border border-slate-200">
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold text-slate-900 group-hover:text-emerald-900 truncate">
-                      {cmd.title}
+          {/* Command List */}
+          <div className="max-h-96 overflow-y-auto p-2.5 space-y-1">
+            {filteredCommands.length === 0 ? (
+              <div className="py-8 text-center text-sm text-slate-400">
+                No matching municipal services found. Press Esc to close.
+              </div>
+            ) : (
+              filteredCommands.map((cmd, idx) => {
+                const Icon = cmd.icon;
+                return (
+                  <motion.button
+                    whileHover={{ scale: 1.01, x: 2 }}
+                    whileTap={{ scale: 0.99 }}
+                    key={idx}
+                    onClick={() => {
+                      onSelectAction(cmd.query);
+                      onClose();
+                    }}
+                    className="w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl hover:bg-slate-800/80 text-left transition-all group cursor-pointer border border-transparent hover:border-slate-700/80"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 group-hover:bg-emerald-500/20 group-hover:border-emerald-500/30 text-slate-300 group-hover:text-emerald-300 flex items-center justify-center shrink-0 transition-colors">
+                      <Icon className="w-4 h-4" />
                     </div>
-                    <div className="text-[11px] text-slate-500">{cmd.category}</div>
-                  </div>
-                  <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 text-slate-400 rounded border border-slate-200">
-                    ↵
-                  </kbd>
-                </button>
-              );
-            })
-          )}
-        </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors truncate font-display">
+                        {cmd.title}
+                      </div>
+                      <div className="text-[11px] text-slate-400">{cmd.category}</div>
+                    </div>
+                    <kbd className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-mono bg-slate-900 text-slate-400 rounded-md border border-slate-700">
+                      ↵
+                    </kbd>
+                  </motion.button>
+                );
+              })
+            )}
+          </div>
 
-        {/* Footer */}
-        <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
-          <span>Navigate with mouse or keyboard</span>
-          <span className="font-mono">ESC to cancel</span>
-        </div>
+          {/* Footer */}
+          <div className="px-4 py-2.5 bg-slate-900/80 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+            <span>Navigate with mouse or keyboard</span>
+            <span className="font-mono">ESC to cancel</span>
+          </div>
+        </motion.div>
       </div>
-    </div>
+    </AnimatePresence>
   );
 };
