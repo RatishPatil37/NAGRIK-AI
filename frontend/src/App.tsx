@@ -57,6 +57,28 @@ export function App() {
   const [isAdminMode, setIsAdminMode] = useState<boolean>(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
 
+  // Dark / Light Theme Management
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('nagrik_theme');
+    if (saved === 'light' || saved === 'dark') return saved;
+    return 'dark'; // default to dark obsidian
+  });
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+    }
+    localStorage.setItem('nagrik_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
   const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_WELCOME_MESSAGE]);
   const [inputQuery, setInputQuery] = useState<string>('');
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
@@ -217,8 +239,8 @@ export function App() {
   const currentWard = wards.find((w) => w.ward_id === selectedWardId);
 
   return (
-    <div className="min-h-screen bg-grid-pattern text-zinc-100 flex flex-col font-sans selection:bg-white/20 selection:text-white">
-      {/* Living Ward & Mode Navigation HUD */}
+    <div className="min-h-screen bg-grid-pattern text-slate-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-slate-300 dark:selection:bg-white/20 transition-colors duration-200">
+      {/* Living Ward & Mode Navigation HUD with Theme Toggle */}
       <WardHUD
         wards={wards}
         selectedWardId={selectedWardId}
@@ -228,6 +250,8 @@ export function App() {
         isAdminMode={isAdminMode}
         onToggleAdmin={() => setIsAdminMode(!isAdminMode)}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       {/* Global Command Palette (⌘K) */}
@@ -271,37 +295,37 @@ export function App() {
                   transition={{ duration: 0.45, delay: 0.05 }}
                   whileHover={{ y: -2 }}
                   onClick={() => handleSubmit('Report water pipe burst with contaminated water')}
-                  className="md:col-span-2 liquid-glass p-5 rounded-2xl cursor-pointer group border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between"
+                  className="md:col-span-2 liquid-glass p-5 rounded-2xl cursor-pointer group border border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all flex flex-col justify-between"
                 >
                   <div>
-                    <div className="flex items-center justify-between text-zinc-400 mb-3">
+                    <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 mb-3">
                       <div className="flex items-center gap-2">
-                        <FileCheck2 className="w-4 h-4 text-zinc-300" />
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                        <FileCheck2 className="w-4 h-4 text-slate-700 dark:text-zinc-300" />
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 dark:text-zinc-400">
                           Statutory SLA Triage Engine
                         </span>
                       </div>
-                      <ArrowRight className="w-4 h-4 text-zinc-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                      <ArrowRight className="w-4 h-4 text-slate-400 dark:text-zinc-500 group-hover:text-slate-900 dark:group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                     </div>
-                    <h3 className="text-base font-bold text-white group-hover:text-zinc-200 transition-colors font-display mb-1.5">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-slate-700 dark:group-hover:text-zinc-200 transition-colors font-display mb-1.5">
                       Automated Grievance Classification & Docketing
                     </h3>
-                    <p className="text-xs text-zinc-400 leading-relaxed max-w-lg mb-4">
+                    <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed max-w-lg mb-4">
                       Categorizes complaints across 10 municipal departments, computes statutory SLA countdowns (4h emergency to 48h civil), and generates official verifiable dockets.
                     </p>
                   </div>
 
                   {/* Simulated Docket Capsule */}
-                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
-                    <div className="flex items-center gap-2 text-zinc-300">
-                      <Hash className="w-3.5 h-3.5 text-zinc-500" />
+                  <div className="p-3 rounded-xl bg-black/5 dark:bg-white/[0.02] border border-black/10 dark:border-white/[0.06] flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+                    <div className="flex items-center gap-2 text-slate-800 dark:text-zinc-300">
+                      <Hash className="w-3.5 h-3.5 text-slate-500" />
                       <span>MCGM-2026-W04-7492</span>
                     </div>
-                    <div className="flex items-center gap-2 text-zinc-400">
-                      <Clock className="w-3.5 h-3.5 text-zinc-500" />
+                    <div className="flex items-center gap-2 text-slate-600 dark:text-zinc-400">
+                      <Clock className="w-3.5 h-3.5 text-slate-500" />
                       <span>SLA: 4h Dispatch</span>
                     </div>
-                    <span className="px-2 py-0.5 rounded bg-white/[0.05] text-zinc-300 border border-white/10 text-[10px]">
+                    <span className="px-2 py-0.5 rounded bg-black/5 dark:bg-white/[0.05] text-slate-800 dark:text-zinc-300 border border-black/10 dark:border-white/10 text-[10px]">
                       Water Supply & Sewerage
                     </span>
                   </div>
@@ -315,26 +339,26 @@ export function App() {
                   transition={{ duration: 0.45, delay: 0.15 }}
                   whileHover={{ y: -2 }}
                   onClick={() => handleSubmit('What is the early bird 10% rebate for Property Tax in Ward 4?')}
-                  className="liquid-glass p-5 rounded-2xl cursor-pointer group border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between"
+                  className="liquid-glass p-5 rounded-2xl cursor-pointer group border border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all flex flex-col justify-between"
                 >
                   <div>
-                    <div className="flex items-center justify-between text-zinc-400 mb-3">
+                    <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 mb-3">
                       <div className="flex items-center gap-2">
-                        <Scale className="w-4 h-4 text-zinc-300" />
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                        <Scale className="w-4 h-4 text-slate-700 dark:text-zinc-300" />
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 dark:text-zinc-400">
                           Deterministic Core
                         </span>
                       </div>
-                      <ArrowRight className="w-4 h-4 text-zinc-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                      <ArrowRight className="w-4 h-4 text-slate-400 dark:text-zinc-500 group-hover:text-slate-900 dark:group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                     </div>
-                    <h3 className="text-base font-bold text-white group-hover:text-zinc-200 transition-colors font-display mb-1.5">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-slate-700 dark:group-hover:text-zinc-200 transition-colors font-display mb-1.5">
                       Property Tax & 10% Rebate Formula
                     </h3>
-                    <p className="text-xs text-zinc-400 leading-relaxed mb-4">
+                    <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed mb-4">
                       Section 128 calculations, early bird payment deadlines, and verified statutory receipt procedures.
                     </p>
                   </div>
-                  <div className="text-[11px] font-mono text-zinc-400 group-hover:text-zinc-200 flex items-center gap-1 transition-colors">
+                  <div className="text-[11px] font-mono text-slate-600 dark:text-zinc-400 group-hover:text-slate-900 dark:group-hover:text-zinc-200 flex items-center gap-1 transition-colors">
                     <span>Inspect Section 128 Rules</span>
                     <ArrowRight className="w-3 h-3" />
                   </div>
@@ -348,26 +372,26 @@ export function App() {
                   transition={{ duration: 0.45, delay: 0.25 }}
                   whileHover={{ y: -2 }}
                   onClick={() => handleSubmit('Emergency: Building wall collapsed with live wires on street')}
-                  className="liquid-glass p-5 rounded-2xl cursor-pointer group border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between"
+                  className="liquid-glass p-5 rounded-2xl cursor-pointer group border border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all flex flex-col justify-between"
                 >
                   <div>
-                    <div className="flex items-center justify-between text-zinc-400 mb-3">
+                    <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 mb-3">
                       <div className="flex items-center gap-2">
-                        <ShieldAlert className="w-4 h-4 text-rose-400" />
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-rose-400/90">
+                        <ShieldAlert className="w-4 h-4 text-rose-500" />
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-rose-500/90">
                           &lt;5ms Pre-Gate
                         </span>
                       </div>
-                      <ArrowRight className="w-4 h-4 text-zinc-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                      <ArrowRight className="w-4 h-4 text-slate-400 dark:text-zinc-500 group-hover:text-slate-900 dark:group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                     </div>
-                    <h3 className="text-base font-bold text-white group-hover:text-zinc-200 transition-colors font-display mb-1.5">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-slate-700 dark:group-hover:text-zinc-200 transition-colors font-display mb-1.5">
                       Life-Safety Emergency Interceptor
                     </h3>
-                    <p className="text-xs text-zinc-400 leading-relaxed mb-4">
+                    <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed mb-4">
                       Deterministic gates intercept building collapses, gas leaks, and live wire snaps before running vector search.
                     </p>
                   </div>
-                  <div className="text-[11px] font-mono text-zinc-400 group-hover:text-rose-300 flex items-center gap-1 transition-colors">
+                  <div className="text-[11px] font-mono text-slate-600 dark:text-zinc-400 group-hover:text-rose-500 flex items-center gap-1 transition-colors">
                     <span>Simulate Safety Trigger</span>
                     <ArrowRight className="w-3 h-3" />
                   </div>
@@ -381,32 +405,32 @@ export function App() {
                   transition={{ duration: 0.45, delay: 0.35 }}
                   whileHover={{ y: -2 }}
                   onClick={() => handleSubmit('What are the setbacks and approval SLAs for building plan permission?')}
-                  className="md:col-span-2 liquid-glass p-5 rounded-2xl cursor-pointer group border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between"
+                  className="md:col-span-2 liquid-glass p-5 rounded-2xl cursor-pointer group border border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all flex flex-col justify-between"
                 >
                   <div>
-                    <div className="flex items-center justify-between text-zinc-400 mb-3">
+                    <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 mb-3">
                       <div className="flex items-center gap-2">
-                        <Building2 className="w-4 h-4 text-zinc-300" />
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                        <Building2 className="w-4 h-4 text-slate-700 dark:text-zinc-300" />
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 dark:text-zinc-400">
                           Town Planning & Permissions
                         </span>
                       </div>
-                      <ArrowRight className="w-4 h-4 text-zinc-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                      <ArrowRight className="w-4 h-4 text-slate-400 dark:text-zinc-500 group-hover:text-slate-900 dark:group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                     </div>
-                    <h3 className="text-base font-bold text-white group-hover:text-zinc-200 transition-colors font-display mb-1.5">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-slate-700 dark:group-hover:text-zinc-200 transition-colors font-display mb-1.5">
                       Building Plan Approvals (OBPAS) & Section 14(b) Standards
                     </h3>
-                    <p className="text-xs text-zinc-400 leading-relaxed max-w-lg mb-4">
+                    <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed max-w-lg mb-4">
                       Official statutory setback standards, auto-DCR scrutinies, occupancy certificates, and 30-day clearance SLAs for residential plots.
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between text-xs text-zinc-400 pt-2 border-t border-white/[0.06] font-mono">
+                  <div className="flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400 pt-2 border-t border-black/5 dark:border-white/[0.06] font-mono">
                     <span className="flex items-center gap-1.5">
-                      <Compass className="w-3.5 h-3.5 text-zinc-400" />
+                      <Compass className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
                       <span>Verified Against 2026 Building Bylaws</span>
                     </span>
-                    <span className="group-hover:text-white transition-colors flex items-center gap-1">
+                    <span className="group-hover:text-slate-900 dark:group-hover:text-white transition-colors flex items-center gap-1">
                       <span>Query Setback Rules</span>
                       <ArrowRight className="w-3 h-3" />
                     </span>
@@ -418,29 +442,29 @@ export function App() {
 
           {/* Quick Municipal Action Pills (Sticky Scroll Bar) */}
           {messages.length > 1 && (
-            <div className="no-print flex items-center justify-between gap-2 py-2 mb-3 border-b border-white/[0.08]">
+            <div className="no-print flex items-center justify-between gap-2 py-2 mb-3 border-b border-slate-200 dark:border-white/[0.08]">
               <div className="flex items-center gap-2 overflow-x-auto text-xs scrollbar-none py-1">
                 <button
                   onClick={() => handleSubmit('What is the early bird 10% rebate for Property Tax in Ward 4?')}
-                  className="liquid-glass-pill px-3 py-1.5 rounded-full text-zinc-300 hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
+                  className="liquid-glass-pill px-3 py-1.5 rounded-full text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
                 >
                   Property Tax 10% Rebate
                 </button>
                 <button
                   onClick={() => handleSubmit('Report water pipe burst with contaminated water')}
-                  className="liquid-glass-pill px-3 py-1.5 rounded-full text-zinc-300 hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
+                  className="liquid-glass-pill px-3 py-1.5 rounded-full text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
                 >
                   Report Water Burst (4h SLA)
                 </button>
                 <button
                   onClick={() => handleSubmit('What are the penalties for open garbage dumping under 2026 rules?')}
-                  className="liquid-glass-pill px-3 py-1.5 rounded-full text-zinc-300 hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
+                  className="liquid-glass-pill px-3 py-1.5 rounded-full text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
                 >
                   Sanitation Bylaw Fines
                 </button>
                 <button
                   onClick={() => handleSubmit('What are the setbacks and approval SLAs for building plan permission?')}
-                  className="liquid-glass-pill px-3 py-1.5 rounded-full text-zinc-300 hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
+                  className="liquid-glass-pill px-3 py-1.5 rounded-full text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
                 >
                   Building Plan Permits (OBPAS)
                 </button>
@@ -449,7 +473,7 @@ export function App() {
               {/* Reset Chat Button */}
               <button
                 onClick={handleResetChat}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] transition-colors text-xs shrink-0 cursor-pointer"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/[0.06] transition-colors text-xs shrink-0 cursor-pointer"
                 title="Clear current session"
               >
                 <RotateCcw className="w-3 h-3" />
@@ -473,7 +497,7 @@ export function App() {
                 >
                   {/* Assistant Avatar */}
                   {msg.role === 'assistant' && (
-                    <div className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/10 text-zinc-300 flex items-center justify-center shrink-0 shadow-sm text-xs font-mono">
+                    <div className="w-8 h-8 rounded-lg bg-black/5 dark:bg-white/[0.05] border border-black/10 dark:border-white/10 text-slate-700 dark:text-zinc-300 flex items-center justify-center shrink-0 shadow-sm text-xs font-mono">
                       <Bot className="w-4 h-4" />
                     </div>
                   )}
@@ -482,27 +506,27 @@ export function App() {
                   <div
                     className={`max-w-[90%] sm:max-w-[82%] rounded-2xl p-4 sm:p-5 shadow-xl ${
                       msg.role === 'user'
-                        ? 'bg-zinc-800 text-zinc-100 rounded-tr-xs border border-white/10 shadow-md'
-                        : 'liquid-glass border border-white/[0.08] text-zinc-100 rounded-tl-xs shadow-xl backdrop-blur-2xl'
+                        ? 'bg-slate-200 dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 rounded-tr-xs border border-slate-300/80 dark:border-white/10 shadow-md'
+                        : 'liquid-glass border border-slate-200/80 dark:border-white/[0.08] text-slate-900 dark:text-zinc-100 rounded-tl-xs shadow-xl backdrop-blur-2xl'
                     }`}
                   >
                     {/* Status Indicator */}
                     {msg.statusText && (
-                      <div className="flex items-center gap-2 text-xs text-zinc-400 font-mono mb-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 animate-pulse" />
+                      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400 font-mono mb-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-zinc-300 animate-pulse" />
                         <span>{msg.statusText}</span>
                       </div>
                     )}
 
                     {/* Text Content with Secure Markdown Renderer */}
-                    <div className="leading-relaxed text-zinc-200">
+                    <div className="leading-relaxed text-slate-800 dark:text-zinc-200">
                       {msg.role === 'user' ? (
                         <div className="whitespace-pre-wrap font-medium">{msg.content}</div>
                       ) : (
                         <div>
                           {renderSecureCivicText(msg.content)}
                           {isStreaming && msg.role === 'assistant' && msg.id === messages[messages.length - 1]?.id && (
-                            <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-zinc-200 animate-pulse rounded-xs align-middle" />
+                            <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-slate-900 dark:bg-zinc-200 animate-pulse rounded-xs align-middle" />
                           )}
                         </div>
                       )}
@@ -530,9 +554,9 @@ export function App() {
 
                     {/* Official Verified Evidence Rail */}
                     {msg.citations && msg.citations.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-white/[0.06] flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] uppercase font-bold text-zinc-400 mr-1 font-mono tracking-wider flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-zinc-400" />
+                      <div className="mt-4 pt-3 border-t border-black/5 dark:border-white/[0.06] flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-zinc-400 mr-1 font-mono tracking-wider flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-slate-600 dark:text-zinc-400" />
                           Verified Citations:
                         </span>
                         {msg.citations.map((c) => (
@@ -542,10 +566,10 @@ export function App() {
                     )}
 
                     {/* Footer Timestamp & Model Badge */}
-                    <div className="mt-3 flex items-center justify-between text-[10px] text-zinc-400 font-mono">
+                    <div className="mt-3 flex items-center justify-between text-[10px] text-slate-400 dark:text-zinc-400 font-mono">
                       <span>{msg.timestamp}</span>
                       {msg.modelUsed && (
-                        <span className="text-zinc-400 bg-white/[0.04] border border-white/[0.08] px-2 py-0.5 rounded font-mono text-[10px]">
+                        <span className="text-slate-600 dark:text-zinc-400 bg-black/5 dark:bg-white/[0.04] border border-black/10 dark:border-white/[0.08] px-2 py-0.5 rounded font-mono text-[10px]">
                           {msg.modelUsed}
                         </span>
                       )}
@@ -554,7 +578,7 @@ export function App() {
 
                   {/* User Avatar */}
                   {msg.role === 'user' && (
-                    <div className="w-8 h-8 rounded-lg bg-white/[0.03] text-zinc-400 flex items-center justify-center shrink-0 border border-white/[0.08]">
+                    <div className="w-8 h-8 rounded-lg bg-black/5 dark:bg-white/[0.03] text-slate-600 dark:text-zinc-400 flex items-center justify-center shrink-0 border border-black/10 dark:border-white/[0.08]">
                       <User className="w-4 h-4" />
                     </div>
                   )}
@@ -568,14 +592,14 @@ export function App() {
 
       {/* Floating Liquid Glass Input Dock (Citizen Mode) */}
       {!isAdminMode && (
-        <div className="no-print fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#08090D] via-[#08090D]/90 to-transparent z-40">
+        <div className="no-print fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC]/90 to-transparent dark:from-[#08090D] dark:via-[#08090D]/90 z-40 transition-colors">
           <div className="max-w-4xl mx-auto">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSubmit();
               }}
-              className="flex items-center gap-2 p-2 liquid-glass rounded-2xl shadow-2xl border border-white/10 focus-within:border-white/20 transition-all backdrop-blur-2xl"
+              className="flex items-center gap-2 p-2 liquid-glass rounded-2xl shadow-2xl border border-slate-200/80 dark:border-white/10 focus-within:border-slate-400 dark:focus-within:border-white/20 transition-all backdrop-blur-2xl"
             >
               {/* Voice Speech Recognition Button */}
               <motion.button
@@ -585,8 +609,8 @@ export function App() {
                 onClick={startListening}
                 className={`p-2.5 rounded-xl transition-all cursor-pointer ${
                   isListening
-                    ? 'bg-white text-zinc-950 shadow-md font-semibold'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.06]'
+                    ? 'bg-slate-950 dark:bg-white text-white dark:text-zinc-950 shadow-md font-semibold'
+                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/[0.06]'
                 }`}
                 title="Speak in your regional language (English, Hindi, Marathi, etc.)"
               >
@@ -596,11 +620,11 @@ export function App() {
               {/* Minimalist Soundwave Indicator (No Neon) */}
               {isListening && (
                 <div className="flex items-center gap-0.5 px-2">
-                  <span className="w-0.5 bg-zinc-300 rounded-full animate-wave-1" />
-                  <span className="w-0.5 bg-zinc-300 rounded-full animate-wave-2" />
-                  <span className="w-0.5 bg-zinc-300 rounded-full animate-wave-3" />
-                  <span className="w-0.5 bg-zinc-300 rounded-full animate-wave-4" />
-                  <span className="w-0.5 bg-zinc-300 rounded-full animate-wave-5" />
+                  <span className="w-0.5 bg-slate-600 dark:bg-zinc-300 rounded-full animate-wave-1" />
+                  <span className="w-0.5 bg-slate-600 dark:bg-zinc-300 rounded-full animate-wave-2" />
+                  <span className="w-0.5 bg-slate-600 dark:bg-zinc-300 rounded-full animate-wave-3" />
+                  <span className="w-0.5 bg-slate-600 dark:bg-zinc-300 rounded-full animate-wave-4" />
+                  <span className="w-0.5 bg-slate-600 dark:bg-zinc-300 rounded-full animate-wave-5" />
                 </div>
               )}
 
@@ -615,7 +639,7 @@ export function App() {
                     : 'Ask about property tax, water bills, building permits, or report a civic issue...'
                 }
                 disabled={isStreaming}
-                className="flex-1 bg-transparent px-3 text-sm text-white placeholder-zinc-500 focus:outline-none font-medium"
+                className="flex-1 bg-transparent px-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none font-medium"
               />
 
               {/* TTS Speech Synthesis Audio Toggle */}
@@ -626,8 +650,8 @@ export function App() {
                 onClick={() => setIsTTSEnabled(!isTTSEnabled)}
                 className={`p-2 rounded-xl transition-colors cursor-pointer ${
                   isTTSEnabled
-                    ? 'text-white bg-white/[0.1] border border-white/20'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/[0.06]'
+                    ? 'text-slate-900 dark:text-white bg-black/5 dark:bg-white/[0.1] border border-black/10 dark:border-white/20'
+                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/[0.06]'
                 }`}
                 title={isTTSEnabled ? 'Audio Response Enabled' : 'Enable Audio Response'}
               >
@@ -640,14 +664,14 @@ export function App() {
                 whileTap={{ scale: 0.96 }}
                 type="submit"
                 disabled={!inputQuery.trim() || isStreaming}
-                className="p-2.5 rounded-xl bg-white hover:bg-zinc-200 disabled:opacity-30 disabled:hover:bg-white text-zinc-950 font-semibold shadow-sm transition-all cursor-pointer"
+                className="p-2.5 rounded-xl bg-slate-950 dark:bg-white hover:bg-slate-800 dark:hover:bg-zinc-200 disabled:opacity-30 disabled:hover:bg-slate-950 dark:disabled:hover:bg-white text-white dark:text-zinc-950 font-semibold shadow-sm transition-all cursor-pointer"
               >
                 <Send className="w-4 h-4" />
               </motion.button>
             </form>
 
             {/* Bottom Status Ticker */}
-            <div className="flex items-center justify-between px-3 pt-2 text-[10px] text-zinc-500 font-mono">
+            <div className="flex items-center justify-between px-3 pt-2 text-[10px] text-slate-500 dark:text-zinc-500 font-mono">
               <span className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/80" />
                 <span>2026 Municipal Gazettes Verified</span>

@@ -54,23 +54,23 @@ export const TypewriterHero: React.FC<TypewriterHeroProps> = ({ onSelectQuery })
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.1, duration: 0.4 }}
-        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full liquid-glass-pill text-zinc-300 text-xs font-mono mb-6"
+        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full liquid-glass-pill text-slate-700 dark:text-zinc-300 text-xs font-mono mb-6"
       >
-        <ShieldCheck className="w-3.5 h-3.5 text-zinc-300" />
+        <ShieldCheck className="w-3.5 h-3.5 text-slate-700 dark:text-zinc-300" />
         <span>Statutory Municipal OS • 2026 Gazettes</span>
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/80" />
       </motion.div>
 
-      {/* Editorial Typography (Zero Neon) */}
-      <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white mb-4 font-display leading-[1.08]">
+      {/* Editorial Typography (Dual-Theme) */}
+      <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-slate-950 dark:text-white mb-4 font-display leading-[1.08]">
         Precision Civic Intelligence.
         <br />
-        <span className="bg-gradient-to-b from-white via-zinc-200 to-zinc-500 bg-clip-text text-transparent">
+        <span className="bg-gradient-to-b from-slate-950 via-slate-800 to-slate-500 dark:from-white dark:via-zinc-200 dark:to-zinc-500 bg-clip-text text-transparent">
           Zero Hallucination.
         </span>
       </h1>
 
-      <p className="text-zinc-400 text-sm sm:text-base md:text-lg max-w-2xl mx-auto mb-8 font-normal leading-relaxed">
+      <p className="text-slate-600 dark:text-zinc-400 text-sm sm:text-base md:text-lg max-w-2xl mx-auto mb-8 font-normal leading-relaxed">
         Grounded strictly in verified municipal bylaws, property tax schedules, and engineering charters. 
         Instant multilingual assistance with deterministic statutory citations.
       </p>
@@ -80,24 +80,24 @@ export const TypewriterHero: React.FC<TypewriterHeroProps> = ({ onSelectQuery })
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.99 }}
         onClick={() => onSelectQuery(displayedText || SAMPLE_QUERIES[currentTextIndex])}
-        className="liquid-glass group cursor-pointer max-w-2xl mx-auto rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 text-left border border-white/10 hover:border-white/20 transition-all shadow-2xl relative overflow-hidden"
+        className="liquid-glass group cursor-pointer max-w-2xl mx-auto rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 text-left border border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all shadow-2xl relative overflow-hidden"
       >
         <div className="flex items-center gap-3.5 flex-1 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center shrink-0 text-zinc-300 group-hover:text-white transition-colors">
+          <div className="w-10 h-10 rounded-xl bg-black/5 dark:bg-white/[0.05] border border-black/10 dark:border-white/10 flex items-center justify-center shrink-0 text-slate-700 dark:text-zinc-300 group-hover:text-slate-950 dark:group-hover:text-white transition-colors">
             <Search className="w-4 h-4" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-0.5">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-0.5">
               Live Prompt • Click To Consult
             </div>
-            <div className="text-zinc-100 font-medium text-sm sm:text-base truncate">
+            <div className="text-slate-900 dark:text-zinc-100 font-medium text-sm sm:text-base truncate">
               <span>{displayedText}</span>
               <span className="typing-cursor" />
             </div>
           </div>
         </div>
 
-        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/10 text-zinc-300 text-xs font-mono group-hover:bg-white/[0.1] group-hover:text-white transition-all shrink-0">
+        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/5 dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-slate-700 dark:text-zinc-300 text-xs font-mono group-hover:bg-black/10 dark:group-hover:bg-white/[0.1] group-hover:text-slate-950 dark:group-hover:text-white transition-all shrink-0">
           <span>Consult</span>
           <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
         </div>
@@ -114,29 +114,29 @@ export const TypewriterHero: React.FC<TypewriterHeroProps> = ({ onSelectQuery })
           <button
             key={idx}
             onClick={() => onSelectQuery(item.q)}
-            className="liquid-glass-pill px-3 py-1.5 rounded-full text-xs text-zinc-400 hover:text-zinc-100 transition-colors cursor-pointer"
+            className="liquid-glass-pill px-3 py-1.5 rounded-full text-xs text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 transition-colors cursor-pointer"
           >
             {item.label}
           </button>
         ))}
       </div>
 
-      {/* Minimalist Telemetry Grid (Zero Neon) */}
-      <div className="mt-10 pt-6 border-t border-white/[0.06] flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-xs text-zinc-400 font-mono">
+      {/* Minimalist Telemetry Grid (Dual-Theme) */}
+      <div className="mt-10 pt-6 border-t border-slate-200 dark:border-white/[0.06] flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-xs text-slate-600 dark:text-zinc-400 font-mono">
         <div className="flex items-center gap-2">
-          <Zap className="w-3.5 h-3.5 text-zinc-300" />
+          <Zap className="w-3.5 h-3.5 text-slate-700 dark:text-zinc-300" />
           <span>&lt;800ms Latency</span>
         </div>
         <div className="flex items-center gap-2">
-          <FileCheck2 className="w-3.5 h-3.5 text-zinc-300" />
+          <FileCheck2 className="w-3.5 h-3.5 text-slate-700 dark:text-zinc-300" />
           <span>100% Deterministic Grounding</span>
         </div>
         <div className="flex items-center gap-2">
-          <ShieldCheck className="w-3.5 h-3.5 text-zinc-300" />
+          <ShieldCheck className="w-3.5 h-3.5 text-slate-700 dark:text-zinc-300" />
           <span>&lt;5ms Emergency Gate</span>
         </div>
         <div className="flex items-center gap-2">
-          <Cpu className="w-3.5 h-3.5 text-zinc-300" />
+          <Cpu className="w-3.5 h-3.5 text-slate-700 dark:text-zinc-300" />
           <span>Triple Redundancy Fallback</span>
         </div>
       </div>
