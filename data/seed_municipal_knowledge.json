@@ -1,0 +1,50 @@
+[
+  {
+    "doc_id": "MNC-REV-2026-001",
+    "title": "Municipal Property Tax Assessment & Rebate Rules 2026",
+    "department": "REV",
+    "document_type": "bylaw",
+    "ward_scope": "all",
+    "section_ref": "Section 8(1) & 4(1)",
+    "text": "Residential properties located in Zone A and Zone B are assessed at a capital value base general tax rate of 1.2% per annum. A seasonal early bird rebate of 10% on the general tax component is granted if the full annual property tax is paid before May 31st via the online citizen portal.",
+    "source_path": "data/corpus/property_tax_bylaws_2026.md",
+    "source_url": "/api/v1/documents/MNC-REV-2026-001/download",
+    "official_portal_ref": "https://mohua.gov.in"
+  },
+  {
+    "doc_id": "MNC-WTR-2026-014",
+    "title": "Water Supply Tariff, Metering & Leak Redressal Charter",
+    "department": "WTR",
+    "document_type": "citizen_charter",
+    "ward_scope": "all",
+    "section_ref": "Section 2 & 3",
+    "text": "Domestic drinking water is supplied at subsidized rates starting at INR 6 per 1,000 Liters up to 15,000 Liters monthly. Emergency main pipeline bursts and domestic water contamination carry a mandatory redressal SLA of 4 hours, with mobile repair units and alternate water tankers dispatched immediately.",
+    "source_path": "data/corpus/water_supply_charter_2026.md",
+    "source_url": "/api/v1/documents/MNC-WTR-2026-014/download",
+    "official_portal_ref": "https://mohua.gov.in"
+  },
+  {
+    "doc_id": "MNC-SAN-2026-009",
+    "title": "Solid Waste Management & Sanitation Bylaws",
+    "department": "SAN",
+    "document_type": "bylaw",
+    "ward_scope": "all",
+    "section_ref": "Section 3 & 12",
+    "text": "Source segregation into Wet (Green Bin), Dry (Blue Bin), and Domestic Hazardous (Red Bin) waste is mandatory for all residential units. Littering and open dumping of municipal garbage incurs an immediate on-spot penalty of INR 500, while burning garbage in public carries a statutory environmental compensation fee of INR 5,000.",
+    "source_path": "data/corpus/solid_waste_management_rules_2026.md",
+    "source_url": "/api/v1/documents/MNC-SAN-2026-009/download",
+    "official_portal_ref": "https://mohua.gov.in"
+  },
+  {
+    "doc_id": "MNC-TNP-2026-022",
+    "title": "Municipal Building Plan Approval & Setback Regulations 2026",
+    "department": "TNP",
+    "document_type": "bylaw",
+    "ward_scope": "all",
+    "section_ref": "Section 1 & 2",
+    "text": "Residential building approvals for plots up to 500 sq. meters are cleared through the Online Building Permission Approval System (OBPAS) within a statutory SLA of 15 working days. Front margins must be a minimum of 3.0 meters for road widths under 12 meters, and 4.5 meters for wider thoroughfares.",
+    "source_path": "data/corpus/building_plan_approval_regulations_2026.md",
+    "source_url": "/api/v1/documents/MNC-TNP-2026-022/download",
+    "official_portal_ref": "https://mohua.gov.in"
+  }
+]
