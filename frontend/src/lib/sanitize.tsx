@@ -1,49 +1,172 @@
 import React from 'react';
 
 /**
- * Secure markdown-lite formatter implementing Invariant #7:
- * Whitelist link protocols strictly to http:, https:, mailto:, tel:, and #cite-.
- * Safely neutralizes javascript: and arbitrary data schemes.
+ * Secure Markdown-lite renderer for Nagrik AI civic responses.
+ *
+ * Supported syntax (Gemini-output compatible):
+ *   ## Heading 2     → section header
+ *   ### Heading 3    → sub-header
+ *   **bold**         → bold text
+ *   `inline code`    → mono code
+ *   [text](url)      → safe link (whitelist: https/http/mailto/tel)
+ *   [S1] [S2]        → citation badge
+ *   - / * item       → bullet list
+ *   1. item          → numbered list
+ *   ---              → horizontal rule
+ *   > blockquote     → note/callout
+ *
+ * Security invariants:
+ *  - Protocol whitelist strictly enforced (no javascript:, no data:)
+ *  - All text nodes go through React (never dangerouslySetInnerHTML)
  */
+
 const SAFE_PROTOCOLS = /^(https?:|mailto:|tel:|#cite-)/i;
 
 export function renderSecureCivicText(text: string): React.ReactNode {
   if (!text) return null;
 
-  // Split lines to preserve structured administrative paragraphs and lists
   const lines = text.split('\n');
+  const nodes: React.ReactNode[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+
+    // Skip empty lines (add vertical gap)
+    if (!trimmed) {
+      nodes.push(<div key={`gap-${i}`} className="h-2" />);
+      i++;
+      continue;
+    }
+
+    // ── Horizontal rule ───────────────────────────────────────────
+    if (/^---+$/.test(trimmed)) {
+      nodes.push(
+        <hr key={`hr-${i}`} className="border-t border-slate-200 dark:border-white/10 my-3" />
+      );
+      i++;
+      continue;
+    }
+
+    // ── H2 heading ## ─────────────────────────────────────────────
+    if (/^##\s+/.test(trimmed)) {
+      const heading = trimmed.replace(/^##\s+/, '');
+      nodes.push(
+        <h2
+          key={`h2-${i}`}
+          className="text-[14px] font-bold text-slate-900 dark:text-white mt-4 mb-1.5 leading-snug"
+        >
+          {parseInline(heading)}
+        </h2>
+      );
+      i++;
+      continue;
+    }
+
+    // ── H3 heading ### ────────────────────────────────────────────
+    if (/^###\s+/.test(trimmed)) {
+      const heading = trimmed.replace(/^###\s+/, '');
+      nodes.push(
+        <h3
+          key={`h3-${i}`}
+          className="text-[13px] font-semibold text-slate-800 dark:text-zinc-200 mt-3 mb-1 leading-snug"
+        >
+          {parseInline(heading)}
+        </h3>
+      );
+      i++;
+      continue;
+    }
+
+    // ── Blockquote > ──────────────────────────────────────────────
+    if (/^>\s+/.test(trimmed)) {
+      const content = trimmed.replace(/^>\s+/, '');
+      nodes.push(
+        <div
+          key={`bq-${i}`}
+          className="border-l-2 border-slate-400 dark:border-zinc-500 pl-3 py-0.5 my-1.5 text-slate-600 dark:text-zinc-400 italic text-[13px]"
+        >
+          {parseInline(content)}
+        </div>
+      );
+      i++;
+      continue;
+    }
+
+    // ── Bullet list (-, *, •) ─────────────────────────────────────
+    if (/^[-*•]\s+/.test(trimmed)) {
+      const listItems: React.ReactNode[] = [];
+      while (i < lines.length && /^[-*•]\s+/.test(lines[i].trim())) {
+        const itemText = lines[i].trim().replace(/^[-*•]\s+/, '');
+        listItems.push(
+          <li
+            key={`li-${i}`}
+            className="flex items-start gap-2 pl-0"
+          >
+            <span className="text-emerald-600 dark:text-emerald-400 font-bold mt-0.5 shrink-0">•</span>
+            <span className="leading-relaxed">{parseInline(itemText)}</span>
+          </li>
+        );
+        i++;
+      }
+      nodes.push(
+        <ul key={`ul-${i}`} className="space-y-1 my-2 pl-1">
+          {listItems}
+        </ul>
+      );
+      continue;
+    }
+
+    // ── Numbered list (1. 2. 3.) ──────────────────────────────────
+    if (/^\d+\.\s+/.test(trimmed)) {
+      const listItems: React.ReactNode[] = [];
+      let counter = 0;
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i].trim())) {
+        counter++;
+        const itemText = lines[i].trim().replace(/^\d+\.\s+/, '');
+        listItems.push(
+          <li key={`oli-${i}`} className="flex items-start gap-2.5 pl-0">
+            <span className="text-emerald-600 dark:text-emerald-400 font-mono font-semibold text-[11px] mt-0.5 shrink-0 w-4 text-right">
+              {counter}.
+            </span>
+            <span className="leading-relaxed">{parseInline(itemText)}</span>
+          </li>
+        );
+        i++;
+      }
+      nodes.push(
+        <ol key={`ol-${i}`} className="space-y-1 my-2 pl-1">
+          {listItems}
+        </ol>
+      );
+      continue;
+    }
+
+    // ── Regular paragraph ─────────────────────────────────────────
+    nodes.push(
+      <p key={`p-${i}`} className="leading-relaxed">
+        {parseInline(trimmed)}
+      </p>
+    );
+    i++;
+  }
 
   return (
-    <div className="space-y-1.5 leading-relaxed text-[13.5px]">
-      {lines.map((line, lineIdx) => {
-        if (!line.trim()) {
-          return <div key={lineIdx} className="h-2" />;
-        }
-
-        const isListItem = /^[*-]\s+/.test(line.trim());
-        const cleanedLine = isListItem ? line.trim().replace(/^[*-]\s+/, '') : line;
-
-        // Process bold and links inside the line
-        const parsedElements = parseLineTokens(cleanedLine);
-
-        if (isListItem) {
-          return (
-            <div key={lineIdx} className="flex items-start gap-2 pl-2">
-              <span className="text-emerald-700 font-bold mt-0.5">•</span>
-              <span>{parsedElements}</span>
-            </div>
-          );
-        }
-
-        return <p key={lineIdx}>{parsedElements}</p>;
-      })}
+    <div className="space-y-1.5 text-[13.5px] text-slate-800 dark:text-zinc-200">
+      {nodes}
     </div>
   );
 }
 
-function parseLineTokens(line: string): React.ReactNode[] {
-  // Regex tokenizing [S1], [link text](url), and **bold**
-  const tokenRegex = /(\[S\d+\])|(\[[^\]]+\]\([^)]+\))|(\*\*[^*]+\*\*)/g;
+/**
+ * Inline token parser: handles **bold**, `code`, [S1], [text](url)
+ */
+function parseInline(line: string): React.ReactNode[] {
+  // Combined regex: citation [S1], markdown link, **bold**, `code`
+  const tokenRegex =
+    /(\[S\d+\])|(\[[^\]]+\]\([^)]+\))|(\*\*[^*]+\*\*)|(`[^`]+`)/g;
+
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -60,7 +183,7 @@ function parseLineTokens(line: string): React.ReactNode[] {
       parts.push(
         <span
           key={`cite-${match.index}`}
-          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 text-[11px] font-mono font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-md shadow-2xs cursor-pointer hover:bg-emerald-100 transition-colors"
+          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700/40 rounded cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors align-middle"
         >
           {token}
         </span>
@@ -81,8 +204,10 @@ function parseLineTokens(line: string): React.ReactNode[] {
             href={safeUrl}
             target={safeUrl.startsWith('http') ? '_blank' : undefined}
             rel={safeUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
-            className={`font-semibold underline underline-offset-2 ${
-              isSafe ? 'text-emerald-700 hover:text-emerald-900' : 'text-slate-400 cursor-not-allowed'
+            className={`font-medium underline underline-offset-2 decoration-1 ${
+              isSafe
+                ? 'text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300'
+                : 'text-slate-400 cursor-not-allowed'
             }`}
           >
             {linkText}
@@ -94,9 +219,24 @@ function parseLineTokens(line: string): React.ReactNode[] {
     else if (match[3]) {
       const boldText = token.slice(2, -2);
       parts.push(
-        <strong key={`bold-${match.index}`} className="font-semibold text-slate-900">
+        <strong
+          key={`bold-${match.index}`}
+          className="font-semibold text-slate-900 dark:text-white"
+        >
           {boldText}
         </strong>
+      );
+    }
+    // Inline code `code`
+    else if (match[4]) {
+      const codeText = token.slice(1, -1);
+      parts.push(
+        <code
+          key={`code-${match.index}`}
+          className="px-1.5 py-0.5 mx-0.5 text-[11px] font-mono bg-slate-100 dark:bg-white/[0.06] text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-white/10 rounded"
+        >
+          {codeText}
+        </code>
       );
     }
 
@@ -107,5 +247,5 @@ function parseLineTokens(line: string): React.ReactNode[] {
     parts.push(line.substring(lastIndex));
   }
 
-  return parts;
+  return parts.length > 0 ? parts : [line];
 }

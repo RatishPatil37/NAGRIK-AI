@@ -75,7 +75,7 @@ if settings.CORS_URL and settings.CORS_URL not in cors_origins:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|.*\.vercel\.app|.*\.onrender\.com)(:\d+)?",
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|[a-z0-9-]+\.vercel\.app|[a-z0-9-]+\.onrender\.com)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -110,8 +110,7 @@ async def health_check():
             "configured": settings.is_qdrant_cloud_configured,
             "cloud_active": hybrid_retriever.is_cloud_active,
             "url": settings.QDRANT_URL,
-            "key_length": len(settings.QDRANT_API_KEY) if settings.QDRANT_API_KEY else 0,
-            "key_suffix": settings.QDRANT_API_KEY[-6:] if settings.QDRANT_API_KEY else "",
+            "key_present": bool(settings.QDRANT_API_KEY),
             "collection": settings.QDRANT_COLLECTION,
         },
         "database": "supabase" if settings.is_supabase_configured else "sqlite_local",

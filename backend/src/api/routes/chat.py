@@ -55,6 +55,25 @@ async def stream_chat(
         lang = req.language_code
 
         # =========================================================
+        # 0. Input Validation Guard
+        # =========================================================
+        MAX_QUERY_LENGTH = 2000
+        MAX_HISTORY_TURNS = 10
+        if len(query) > MAX_QUERY_LENGTH:
+            yield {
+                "event": "token",
+                "data": json.dumps({"token": "Query is too long. Please limit your question to 2000 characters.", "model": "input-guard"}),
+            }
+            yield {"event": "done", "data": "[DONE]"}
+            return
+        if not query:
+            yield {"event": "done", "data": "[DONE]"}
+            return
+        # Truncate history to prevent context window abuse
+        if req.history and len(req.history) > MAX_HISTORY_TURNS:
+            req.history = req.history[-MAX_HISTORY_TURNS:]
+
+        # =========================================================
         # 1. Emergency SOS Pre-Gate (<5ms)
         # =========================================================
         sos_result = check_emergency_sos(query)

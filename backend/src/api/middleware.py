@@ -64,10 +64,25 @@ rate_limiter = SlidingWindowRateLimiter(
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         # Exclude static assets or health checks
-        if request.url.path in ["/health", "/", "/docs", "/openapi.json"]:
+        if request.url.path in ["/health", "/", "/docs", "/openapi.json", "/redoc"]:
             return await call_next(request)
 
-        client_ip = request.client.host if request.client else "127.0.0.1"
+        # Extract real client IP from X-Forwarded-For (set by Render/Vercel proxies).
+        # request.client.host is always the internal load balancer behind reverse proxies.
+        # Validate that the XFF header looks like an IP to prevent header-injection attacks.
+        xff = request.headers.get("X-Forwarded-For", "")
+        if xff:
+            # XFF may be a comma-separated list; take the leftmost (original client).
+            candidate = xff.split(",")[0].strip()
+            # Basic validation: allow IPv4 and IPv6 characters only.
+            import re as _re
+            if _re.match(r'^[\d\.a-fA-F:]{3,45}$', candidate):
+                client_ip = candidate
+            else:
+                client_ip = request.client.host if request.client else "127.0.0.1"
+        else:
+            client_ip = request.client.host if request.client else "127.0.0.1"
+
         if not rate_limiter.is_allowed(client_ip):
             return Response(
                 content="Rate limit exceeded. Please wait a minute before making more requests.",

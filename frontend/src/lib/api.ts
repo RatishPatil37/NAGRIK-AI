@@ -35,6 +35,10 @@ export async function streamChatQuery(
   conversationId?: string | null,
   history?: Array<{ role: string; content: string }>
 ) {
+  // Guard: track whether the SSE `done` event already fired so we don't
+  // invoke onDone twice (once from the event, once from onclose).
+  let doneSignalled = false;
+
   try {
     await fetchEventSource(`${API_BASE}/api/v1/chat/stream`, {
       method: 'POST',
@@ -88,7 +92,11 @@ export async function streamChatQuery(
             callbacks.onEscalation?.(data);
           } catch (e) {}
         } else if (event.event === 'done') {
-          callbacks.onDone?.();
+          // Mark as done so onclose does NOT fire a second onDone (echo fix).
+          if (!doneSignalled) {
+            doneSignalled = true;
+            callbacks.onDone?.();
+          }
         }
       },
       onerror(err) {
@@ -96,7 +104,12 @@ export async function streamChatQuery(
         throw err;
       },
       onclose() {
-        callbacks.onDone?.();
+        // Only fire onDone here if the 'done' SSE event never arrived
+        // (e.g. server dropped connection without sending it).
+        if (!doneSignalled) {
+          doneSignalled = true;
+          callbacks.onDone?.();
+        }
       },
     });
   } catch (err: any) {
@@ -108,7 +121,9 @@ export async function streamChatQuery(
 
 // Helper for admin requests
 function getAdminHeaders(): HeadersInit {
-  const adminKey = localStorage.getItem('nagrik_admin_key') || 'nagrik-super-secret-admin-key-2026';
+  // Admin key is stored in localStorage after being entered by the admin user.
+  // Never hard-code a default key here — it would ship in the browser bundle.
+  const adminKey = localStorage.getItem('nagrik_admin_key') || '';
   return {
     'X-Admin-Key': adminKey,
   };

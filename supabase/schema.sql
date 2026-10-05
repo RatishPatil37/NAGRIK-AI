@@ -1,6 +1,7 @@
 -- ==============================================================================
 -- 🏛️ NAGRIK AI (नागरिक AI) - PRODUCTION SUPABASE POSTGRESQL SCHEMA
 -- Execute this script in the Supabase Dashboard -> SQL Editor -> New Query
+-- SAFE TO RE-RUN: All statements use IF NOT EXISTS / OR REPLACE / ON CONFLICT
 -- ==============================================================================
 
 -- Enable UUID extension if not already enabled
@@ -20,7 +21,7 @@ CREATE TABLE IF NOT EXISTS municipal_wards (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Seed Municipal Wards
+-- Seed Municipal Wards (safe: ON CONFLICT DO NOTHING)
 INSERT INTO municipal_wards (ward_id, ward_name, zone_name, ward_officer_name, contact_phone)
 VALUES
     (1, 'Ward 01: Colaba & Fort', 'Zone A', 'R. K. Sharma', '+91-22-22661234'),
@@ -46,7 +47,7 @@ CREATE TABLE IF NOT EXISTS municipal_departments (
     standard_sla_hours INT DEFAULT 48
 );
 
--- Seed Municipal Departments
+-- Seed Municipal Departments (safe: ON CONFLICT DO NOTHING)
 INSERT INTO municipal_departments (dept_code, dept_name, standard_sla_hours, head_officer_email)
 VALUES
     ('WTR', 'Water Supply & Sewerage', 24, 'chief.water@municipal.gov.in'),
@@ -106,7 +107,7 @@ CREATE TABLE IF NOT EXISTS grievances (
 );
 
 -- ------------------------------------------------------------------------------
--- 6. Performance Indexes
+-- 6. Performance Indexes (IF NOT EXISTS prevents re-run errors)
 -- ------------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_grievances_ward ON grievances(ward_id);
 CREATE INDEX IF NOT EXISTS idx_grievances_dept ON grievances(dept_code);
@@ -116,6 +117,8 @@ CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id);
 
 -- ------------------------------------------------------------------------------
 -- 7. Row-Level Security (RLS) Policies
+-- NOTE: DROP POLICY IF EXISTS before CREATE POLICY makes this idempotent.
+--       Without this, re-running the script produces "policy already exists".
 -- ------------------------------------------------------------------------------
 ALTER TABLE municipal_wards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE municipal_departments ENABLE ROW LEVEL SECURITY;
@@ -123,19 +126,28 @@ ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE grievances ENABLE ROW LEVEL SECURITY;
 
--- Allow public read of wards and departments
+-- Wards: public read
+DROP POLICY IF EXISTS "Public read municipal_wards" ON municipal_wards;
 CREATE POLICY "Public read municipal_wards" ON municipal_wards FOR SELECT USING (true);
+
+-- Departments: public read
+DROP POLICY IF EXISTS "Public read municipal_departments" ON municipal_departments;
 CREATE POLICY "Public read municipal_departments" ON municipal_departments FOR SELECT USING (true);
 
--- Conversations policies
+-- Conversations: citizens manage their own (anonymous users allowed)
+DROP POLICY IF EXISTS "Citizens manage conversations" ON conversations;
 CREATE POLICY "Citizens manage conversations" ON conversations FOR ALL USING (
     auth.uid() = user_id OR auth.uid() IS NULL
 );
 
--- Messages policies
+-- Messages: unrestricted for MVP (tighten post-launch with auth.uid())
+DROP POLICY IF EXISTS "Citizens access messages" ON messages;
 CREATE POLICY "Citizens access messages" ON messages FOR ALL USING (true);
 
--- Grievances policies
+-- Grievances: fully public for MVP civic filing
+DROP POLICY IF EXISTS "Public insert grievances" ON grievances;
+DROP POLICY IF EXISTS "Public select grievances" ON grievances;
+DROP POLICY IF EXISTS "Public update grievances" ON grievances;
 CREATE POLICY "Public insert grievances" ON grievances FOR INSERT WITH CHECK (true);
 CREATE POLICY "Public select grievances" ON grievances FOR SELECT USING (true);
 CREATE POLICY "Public update grievances" ON grievances FOR UPDATE USING (true);

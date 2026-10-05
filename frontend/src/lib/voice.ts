@@ -3,11 +3,17 @@
  * Primary: Sarvam AI Bulbul:v3
  * Secondary: Microsoft Edge Neural TTS
  * Tertiary: Browser Web SpeechSynthesis
+ *
+ * Echo Fix: activeAudio sentinel prevents concurrent playback. After the async
+ * synthesizeSpeech() fetch we re-check the sentinel — if another speakResponse()
+ * call has already started (and reset the sentinel to null then back), we abort
+ * so we never play two audio streams simultaneously.
  */
 
 import { useState, useCallback } from 'react';
 import { synthesizeSpeech } from './api';
 
+// Module-level sentinel: only one audio element plays at a time.
 let activeAudio: HTMLAudioElement | null = null;
 
 export function useVoiceRecognition(onResult: (text: string) => void, lang: string = 'en-IN') {
@@ -67,42 +73,63 @@ export function useVoiceRecognition(onResult: (text: string) => void, lang: stri
   return { isListening, error, startListening };
 }
 
+// Unique token for each speakResponse() call: lets us detect if a newer call
+// has already taken ownership while we were awaiting the network fetch.
+let _speakToken = 0;
+
 export async function speakResponse(text: string, lang: string = 'en-IN') {
-  // Cancel any ongoing audio or speech synthesis
+  // Grab a unique token for this invocation BEFORE any async work.
+  const myToken = ++_speakToken;
+
+  // Immediately stop any ongoing playback.
   if (activeAudio) {
     activeAudio.pause();
+    activeAudio.src = ''; // force Safari / mobile to release the media session
     activeAudio = null;
   }
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel();
   }
 
-  // Strip markdown formatting before speaking
+  // Strip markdown formatting before speaking.
   const cleanText = text
     .replace(/\[S\d+\]/g, '')
     .replace(/[#*`_]/g, '')
     .replace(/https?:\/\/\S+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
     .slice(0, 350);
 
-  if (!cleanText.trim()) return;
+  if (!cleanText) return;
 
-  // Tier 1 & 2: Server-side Neural TTS (Sarvam AI Bulbul:v3 + Edge-TTS Fallback)
+  // ── Tier 1 & 2: Server-side Neural TTS ───────────────────────────────────
   try {
     const blob = await synthesizeSpeech(cleanText, lang);
+
+    // After the await, check if a newer speakResponse() call has already started.
+    // If so, our audio would create an echo — bail out silently.
+    if (myToken !== _speakToken) return;
+
     const audioUrl = URL.createObjectURL(blob);
     const audio = new Audio(audioUrl);
     activeAudio = audio;
-    audio.onended = () => {
+
+    const cleanup = () => {
       URL.revokeObjectURL(audioUrl);
       if (activeAudio === audio) activeAudio = null;
     };
+    audio.onended = cleanup;
+    audio.onerror = cleanup;
+
     await audio.play();
-    return;
+    return; // Success — do NOT fall through to Tier 3.
   } catch (err) {
-    console.warn('[VoiceGateway] Server neural TTS fallback to browser SpeechSynthesis:', err);
+    console.warn('[VoiceGateway] Server TTS failed, falling back to browser SpeechSynthesis:', err);
+    // If we were superseded while fetching, don't start Tier 3 either.
+    if (myToken !== _speakToken) return;
   }
 
-  // Tier 3: Browser Web SpeechSynthesis Fallback
+  // ── Tier 3: Browser Web SpeechSynthesis (only on genuine server failure) ──
   if ('speechSynthesis' in window) {
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = lang;
