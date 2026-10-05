@@ -58,7 +58,14 @@ async def get_grievance(ticket_id: str):
     return grievance
 
 
+from fastapi import APIRouter, Depends, HTTPException, Query
+from backend.src.api.dependencies import require_admin_role
+
 @router.get("/", response_model=List[Grievance])
-async def list_grievances(ward_id: Optional[int] = Query(None), limit: int = Query(50, le=100)):
-    """Lists grievances filtered by municipal ward."""
+async def list_grievances(
+    ward_id: Optional[int] = Query(None),
+    limit: int = Query(50, le=100),
+    admin_user: str = Depends(require_admin_role),
+):
+    """Lists grievances filtered by municipal ward (Administrative access required)."""
     return await db_adapter.list_grievances(ward_id=ward_id, limit=limit)

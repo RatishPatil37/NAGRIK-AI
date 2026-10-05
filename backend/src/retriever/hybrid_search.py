@@ -17,28 +17,62 @@ class HybridRetriever:
         if self._client is None:
             if settings.is_qdrant_cloud_configured:
                 print(f"[HybridRetriever] Connecting to Qdrant Cloud at {settings.QDRANT_URL}...")
-                self._client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)
+                self._client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY, timeout=30.0)
             else:
                 print(f"[HybridRetriever] Using local Qdrant storage at {settings.QDRANT_LOCAL_PATH}...")
                 self._client = QdrantClient(path=settings.QDRANT_LOCAL_PATH)
         return self._client
 
     def ensure_collection(self):
-        """Ensures the hybrid collection exists with dense and sparse vector configurations."""
+        """Ensures the hybrid collection exists with dense and sparse vector configurations,
+        and ensures keyword payload indexes exist for multi-tenant filtering.
+        Includes automatic fallback to local Qdrant storage if cloud authentication or connection fails.
+        """
         client = self.get_client()
-        collections = [c.name for c in client.get_collections().collections]
-        if self.collection_name not in collections:
-            print(f"[HybridRetriever] Creating hybrid collection '{self.collection_name}'...")
-            client.create_collection(
-                collection_name=self.collection_name,
-                vectors_config={
-                    "dense": models.VectorParams(size=384, distance=models.Distance.COSINE)
-                },
-                sparse_vectors_config={
-                    "sparse": models.SparseVectorParams(modifier=models.Modifier.IDF)
-                },
-            )
-            print(f"[HybridRetriever] Collection '{self.collection_name}' created successfully.")
+        collections = []
+        try:
+            collections = [c.name for c in client.get_collections().collections]
+        except Exception as e:
+            if settings.is_qdrant_cloud_configured:
+                print(f"[HybridRetriever] WARNING: Qdrant Cloud connection/auth failed ({e}).")
+                print(f"[HybridRetriever] Falling back to local offline Qdrant storage at {settings.QDRANT_LOCAL_PATH}...")
+                try:
+                    self._client = QdrantClient(path=settings.QDRANT_LOCAL_PATH)
+                    client = self._client
+                    collections = [c.name for c in client.get_collections().collections]
+                except Exception as local_err:
+                    print(f"[HybridRetriever] ERROR: Local Qdrant initialization failed: {local_err}")
+                    return
+            else:
+                print(f"[HybridRetriever] ERROR: Could not connect to Qdrant: {e}")
+                return
+
+        try:
+            if self.collection_name not in collections:
+                print(f"[HybridRetriever] Creating hybrid collection '{self.collection_name}'...")
+                client.create_collection(
+                    collection_name=self.collection_name,
+                    vectors_config={
+                        "dense": models.VectorParams(size=384, distance=models.Distance.COSINE)
+                    },
+                    sparse_vectors_config={
+                        "sparse": models.SparseVectorParams(modifier=models.Modifier.IDF)
+                    },
+                )
+                print(f"[HybridRetriever] Collection '{self.collection_name}' created successfully.")
+
+            # Ensure keyword payload indexes exist for scope, owner_user_id, and department
+            for field in ["scope", "owner_user_id", "department"]:
+                try:
+                    client.create_payload_index(
+                        collection_name=self.collection_name,
+                        field_name=field,
+                        field_schema=models.PayloadSchemaType.KEYWORD,
+                    )
+                except Exception:
+                    pass
+        except Exception as err:
+            print(f"[HybridRetriever] Non-fatal error ensuring collection structure: {err}")
 
     def search(
         self,
@@ -90,14 +124,28 @@ class HybridRetriever:
             )
             points = results.points
         except Exception as e:
-            # Fallback to dense-only query if RRF is not supported in a particular embedded client version
+            # Fallback to dense-only query or query without filter if index pending
             print(f"[HybridRetriever] RRF prefetch fallback triggered: {e}")
-            points = client.search(
-                collection_name=self.collection_name,
-                query_vector=("dense", dense_embedding),
-                query_filter=query_filter,
-                limit=limit,
-            )
+            try:
+                points = client.query_points(
+                    collection_name=self.collection_name,
+                    query=dense_embedding,
+                    using="dense",
+                    query_filter=query_filter,
+                    limit=limit,
+                ).points
+            except Exception as e2:
+                print(f"[HybridRetriever] Filter fallback triggered: {e2}")
+                try:
+                    points = client.query_points(
+                        collection_name=self.collection_name,
+                        query=dense_embedding,
+                        using="dense",
+                        limit=limit,
+                    ).points
+                except Exception as e3:
+                    print(f"[HybridRetriever] Network/Remote search error: {e3}")
+                    points = []
 
         output_chunks = []
         for i, point in enumerate(points, start=1):

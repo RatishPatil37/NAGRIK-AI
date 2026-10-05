@@ -5,7 +5,7 @@ hybrid vector retrieval, multi-tier LLM generation, citation pruning, and autono
 import asyncio
 import json
 import time
-from typing import Optional
+from typing import List, Optional
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
@@ -19,6 +19,7 @@ from backend.src.guardrails.emergency_sos import check_emergency_sos
 from backend.src.guardrails.intent_gate import check_intent_gate
 from backend.src.guardrails.scope_gate import check_scope_gate
 from backend.src.multilingual.normalizer import normalize_query_for_retrieval
+from backend.src.retriever.gov_api_router import gov_api_router
 from backend.src.retriever.hybrid_search import hybrid_retriever
 from backend.src.retriever.pruner import filter_cited_evidence
 from backend.src.telemetry.tracer import tracer
@@ -26,11 +27,17 @@ from backend.src.telemetry.tracer import tracer
 router = APIRouter(prefix="/chat", tags=["Chat & Streaming"])
 
 
+class ChatMessageItem(BaseModel):
+    role: str
+    content: str
+
+
 class ChatStreamRequest(BaseModel):
     query: str
     ward_id: Optional[int] = None
     language_code: str = "en"
     conversation_id: Optional[str] = None
+    history: List[ChatMessageItem] = []
 
 
 @router.post("/stream")
@@ -104,14 +111,27 @@ async def stream_chat(
             return
 
         # =========================================================
-        # 5. Multilingual Query Normalizer & Hybrid Retrieval
+        # 5. Multilingual Query Normalizer, Contextualizer & Hybrid Retrieval
         # =========================================================
+        history_dicts = [{"role": h.role, "content": h.content} for h in req.history] if req.history else []
+        standalone_query = query
+        if history_dicts:
+            standalone_query = await llm_client.contextualize_query(query, history_dicts)
+
+        # Check for Live Civic Telemetry (AQI, Weather, IUDX, OGD)
+        live_telemetry = await gov_api_router.route_and_fetch(standalone_query, ward_id=ward_id)
+        if live_telemetry:
+            yield {
+                "event": "status",
+                "data": json.dumps({"status": "Corroborating real-time environmental & municipal sensor telemetry..."}),
+            }
+
         yield {
             "event": "status",
             "data": json.dumps({"status": "Verifying municipal regulations & bylaws..."}),
         }
 
-        normalized_query = normalize_query_for_retrieval(query)
+        normalized_query = normalize_query_for_retrieval(standalone_query)
         retrieved_chunks = await asyncio.to_thread(
             hybrid_retriever.search,
             query_text=normalized_query,
@@ -136,6 +156,8 @@ async def stream_chat(
                 query=query,
                 evidence_chunks=retrieved_chunks,
                 language_code=lang,
+                conversation_history=history_dicts,
+                live_telemetry=live_telemetry,
             ):
                 if await request.is_disconnected():
                     print("[SSE] Client disconnected, aborting generation.")
@@ -157,12 +179,9 @@ async def stream_chat(
             }
 
         # =========================================================
-        # 7. Post-Stream Citation Pruning
+        # 7. Post-Stream Citation Pruning (Strict: Zero [Sx] -> Empty Citations)
         # =========================================================
         cited_evidence = filter_cited_evidence(full_text, retrieved_chunks)
-        # If no explicit [S1] citations were found in the text but chunks were used, provide top chunk as verified reference
-        if not cited_evidence and retrieved_chunks:
-            cited_evidence = [retrieved_chunks[0]]
 
         yield {
             "event": "citations",
@@ -193,7 +212,28 @@ async def stream_chat(
             }
 
         # =========================================================
-        # 9. Non-blocking Async Telemetry & Done Event
+        # 9. Asynchronous Conversation Message Persistence
+        # =========================================================
+        conv_id = req.conversation_id
+        if conv_id and db_adapter:
+            try:
+                await db_adapter.save_message(
+                    conversation_id=conv_id,
+                    role="user",
+                    content=query,
+                    citations=[],
+                )
+                await db_adapter.save_message(
+                    conversation_id=conv_id,
+                    role="assistant",
+                    content=full_text,
+                    citations=cited_evidence,
+                )
+            except Exception as db_err:
+                print(f"[Chat] Could not persist message turn: {db_err}")
+
+        # =========================================================
+        # 10. Non-blocking Async Telemetry & Done Event
         # =========================================================
         latency_ms = (time.time() - start_time) * 1000
         tracer.log_trace(

@@ -25,21 +25,30 @@ Your mission is to provide authoritative, zero-hallucination, courteous, and act
 
 5. GRIEVANCE & ACTION GUIDANCE:
    - If the citizen describes an active problem (e.g. water leak, garbage overflow, pothole, tax billing dispute), provide step-by-step guidance on registering a formal grievance ticket or note that a ticket can be dispatched immediately.
+
+6. LIVE CIVIC TELEMETRY:
+   - If a `<live_civic_telemetry>` block is provided (CPCB AQI, IMD weather alerts, IUDX sensor readings), explicitly cite the official source portal (e.g., CPCB SAMEER, IMD Mausam, IUDX) and date/time. Ground real-time metrics strictly in this data.
 """
 
-def build_context_block(evidence_chunks: list) -> str:
-    """Formats retrieved evidence chunks into structured markdown for LLM grounding."""
-    if not evidence_chunks:
-        return "No specific official municipal gazette chunks retrieved."
+def build_context_block(evidence_chunks: list, live_telemetry: str = None) -> str:
+    """Formats retrieved evidence chunks and live civic telemetry into structured markdown for LLM grounding."""
+    sections = []
 
-    lines = ["### [OFFICIAL MUNICIPAL EVIDENCE]:"]
-    for chunk in evidence_chunks:
-        idx = chunk.get("index", 1)
-        title = chunk.get("title", "Official Gazette")
-        dept = chunk.get("department", "GEN")
-        sec = chunk.get("section_ref", "General")
-        text = chunk.get("text", "")
-        doc_id = chunk.get("doc_id", "")
-        lines.append(f"[{idx}] (Ref: [S{idx}], DocID: {doc_id}, Dept: {dept}, Section: {sec}, Title: {title}):\n\"{text}\"\n")
+    if live_telemetry:
+        sections.append("### [LIVE CIVIC TELEMETRY & SENSOR FEEDS]:\n" + live_telemetry.strip() + "\n")
 
-    return "\n".join(lines)
+    if evidence_chunks:
+        lines = ["### [OFFICIAL MUNICIPAL EVIDENCE]:"]
+        for chunk in evidence_chunks:
+            idx = chunk.get("index", 1)
+            title = chunk.get("title", "Official Gazette")
+            dept = chunk.get("department", "GEN")
+            sec = chunk.get("section_ref", "General")
+            text = chunk.get("text", "")
+            doc_id = chunk.get("doc_id", "")
+            lines.append(f"[{idx}] (Ref: [S{idx}], DocID: {doc_id}, Dept: {dept}, Section: {sec}, Title: {title}):\n\"{text}\"\n")
+        sections.append("\n".join(lines))
+    elif not live_telemetry:
+        sections.append("No specific official municipal gazette chunks retrieved.")
+
+    return "\n\n".join(sections)

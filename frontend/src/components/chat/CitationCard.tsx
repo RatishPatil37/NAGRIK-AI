@@ -3,12 +3,16 @@ import { FileText, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CitationItem } from '../../types';
 
+import { GazettePreviewModal } from './GazettePreviewModal';
+
 interface CitationChipProps {
   citation: CitationItem;
+  onSelect?: (citation: CitationItem) => void;
 }
 
-export const CitationChip: React.FC<CitationChipProps> = ({ citation }) => {
+export const CitationChip: React.FC<CitationChipProps> = ({ citation, onSelect }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [timer, setTimer] = useState<any>(null);
 
   const handleMouseEnter = () => {
@@ -23,22 +27,32 @@ export const CitationChip: React.FC<CitationChipProps> = ({ citation }) => {
     setTimer(t);
   };
 
+  const handleClick = () => {
+    if (onSelect) {
+      onSelect(citation);
+    } else {
+      setIsModalOpen(true);
+    }
+  };
+
   return (
-    <span
-      className="relative inline-block align-baseline mx-0.5"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {/* Clickable Liquid Glass Citation Pill */}
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        type="button"
-        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono bg-white/[0.05] hover:bg-white/[0.1] text-zinc-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
+    <>
+      <span
+        className="relative inline-block align-baseline mx-0.5"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
-        <FileText className="w-3 h-3 text-zinc-400" />
-        <span>[S{citation.index}]</span>
-      </motion.button>
+        {/* Clickable Liquid Glass Citation Pill */}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          type="button"
+          onClick={handleClick}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono bg-white/[0.05] hover:bg-white/[0.1] text-zinc-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
+        >
+          <FileText className="w-3 h-3 text-zinc-400" />
+          <span>[S{citation.index}]</span>
+        </motion.button>
 
       {/* Nature-Style Hover Card Popover */}
       <AnimatePresence>
@@ -85,5 +99,13 @@ export const CitationChip: React.FC<CitationChipProps> = ({ citation }) => {
         )}
       </AnimatePresence>
     </span>
+
+    {isModalOpen && (
+      <GazettePreviewModal
+        citation={citation}
+        onClose={() => setIsModalOpen(false)}
+      />
+    )}
+  </>
   );
 };

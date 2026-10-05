@@ -3,10 +3,15 @@
 import math
 from datetime import datetime, timezone
 from typing import Any, Dict, List
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from backend.src.api.dependencies import require_admin_role
 from backend.src.database.adapter import db_adapter
 
-router = APIRouter(prefix="/admin", tags=["Administrative Decision Support"])
+router = APIRouter(
+    prefix="/admin",
+    tags=["Administrative Decision Support"],
+    dependencies=[Depends(require_admin_role)],
+)
 
 # Baseline population estimates per ward (in thousands)
 WARD_POPULATION_K = {

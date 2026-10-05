@@ -34,18 +34,73 @@ class ResilientLLMClient:
                 print(f"[LLMClient] Failed to initialize groq: {e}")
         return self._groq_client
 
+    async def contextualize_query(self, query: str, history: Optional[List[Dict]] = None) -> str:
+        """Resolves pronouns and conversational anaphora against previous dialogue turns.
+        Uses fast lightweight secondary model (gemini-3.5-flash-lite) with strict 2.0s timeout.
+        """
+        if not history:
+            return query
+
+        recent_turns = history[-4:]
+        history_summary = []
+        for t in recent_turns:
+            role = t.get("role", "user")
+            content = t.get("content", "")[:200]
+            history_summary.append(f"{role.capitalize()}: {content}")
+        history_text = "\n".join(history_summary)
+
+        contextualize_prompt = (
+            f"Given the following civic conversation history between a citizen and Nagrik AI:\n"
+            f"{history_text}\n\n"
+            f"Rewrite the citizen's latest query to be a standalone search query for municipal regulations, "
+            f"resolving any pronouns (like 'it', 'that', 'this fee', 'there'). Do not answer the question; only return the rewritten standalone query in the same language.\n\n"
+            f"Latest Query: {query}\nStandalone Query:"
+        )
+
+        gemini_client = self._get_gemini_client()
+        if gemini_client:
+            try:
+                resp = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        gemini_client.models.generate_content,
+                        model=settings.SECONDARY_MODEL,
+                        contents=contextualize_prompt,
+                    ),
+                    timeout=2.0,
+                )
+                if resp and resp.text:
+                    rewritten = resp.text.strip().strip('"').strip("'")
+                    if len(rewritten) > 3:
+                        print(f"[LLMClient] Contextualized query: '{query}' -> '{rewritten}'")
+                        return rewritten
+            except Exception as e:
+                print(f"[LLMClient] Contextualization skipped: {e}")
+
+        return query
+
     async def stream_generate(
         self,
         query: str,
         evidence_chunks: List[Dict],
         language_code: str = "en",
         conversation_history: Optional[List[Dict]] = None,
+        live_telemetry: Optional[str] = None,
     ) -> AsyncGenerator[Dict, None]:
         """Streams generated tokens from the highest available tier in the resiliency chain.
         Yields dicts with: {"token": str, "model": str, "tier": int}
         """
-        context_str = build_context_block(evidence_chunks)
+        context_str = build_context_block(evidence_chunks, live_telemetry=live_telemetry)
+
+        history_context = ""
+        if conversation_history:
+            turns = [
+                f"{t.get('role', 'user').capitalize()}: {t.get('content', '')[:300]}"
+                for t in conversation_history[-4:]
+            ]
+            history_context = "### Previous Conversation Turns:\n" + "\n".join(turns) + "\n\n"
+
         user_prompt = (
+            f"{history_context}"
             f"Citizen Query (Respond in Language: {language_code}):\n{query}\n\n"
             f"{context_str}\n\n"
             f"Provide an authoritative, clear answer citing official sources using [S1], [S2] where applicable."

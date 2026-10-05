@@ -31,7 +31,9 @@ export async function streamChatQuery(
   wardId: number | null,
   languageCode: string,
   callbacks: StreamCallbacks,
-  abortController: AbortController
+  abortController: AbortController,
+  conversationId?: string | null,
+  history?: Array<{ role: string; content: string }>
 ) {
   try {
     await fetchEventSource(`${API_BASE}/api/v1/chat/stream`, {
@@ -43,6 +45,8 @@ export async function streamChatQuery(
         query,
         ward_id: wardId,
         language_code: languageCode,
+        conversation_id: conversationId || undefined,
+        history: history || [],
       }),
       signal: abortController.signal,
       async onopen(response) {
@@ -102,6 +106,14 @@ export async function streamChatQuery(
   }
 }
 
+// Helper for admin requests
+function getAdminHeaders(): HeadersInit {
+  const adminKey = localStorage.getItem('nagrik_admin_key') || 'nagrik-super-secret-admin-key-2026';
+  return {
+    'X-Admin-Key': adminKey,
+  };
+}
+
 // REST Endpoints
 export async function fetchWards(): Promise<MunicipalWard[]> {
   const res = await fetch(`${API_BASE}/api/v1/wards/`);
@@ -110,19 +122,42 @@ export async function fetchWards(): Promise<MunicipalWard[]> {
 }
 
 export async function fetchWardHeatmap(): Promise<{ city_total_grievances: number; wards: WardHeatmapStat[] }> {
-  const res = await fetch(`${API_BASE}/api/v1/admin/heatmap`);
+  const res = await fetch(`${API_BASE}/api/v1/admin/heatmap`, {
+    headers: getAdminHeaders(),
+  });
   if (!res.ok) throw new Error('Failed to fetch admin heatmap');
   return res.json();
 }
 
 export async function fetchSLAStatus(): Promise<SLAStatusData> {
-  const res = await fetch(`${API_BASE}/api/v1/admin/sla-status`);
+  const res = await fetch(`${API_BASE}/api/v1/admin/sla-status`, {
+    headers: getAdminHeaders(),
+  });
   if (!res.ok) throw new Error('Failed to fetch SLA analytics');
   return res.json();
 }
 
 export async function fetchAdminFAQs(): Promise<any> {
-  const res = await fetch(`${API_BASE}/api/v1/admin/faqs`);
+  const res = await fetch(`${API_BASE}/api/v1/admin/faqs`, {
+    headers: getAdminHeaders(),
+  });
   if (!res.ok) throw new Error('Failed to fetch FAQ analytics');
   return res.json();
+}
+
+export async function synthesizeSpeech(text: string, languageCode: string): Promise<Blob> {
+  const res = await fetch(`${API_BASE}/api/v1/voice/synthesize`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      text,
+      language_code: languageCode,
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`Voice synthesis failed: HTTP ${res.status}`);
+  }
+  return res.blob();
 }

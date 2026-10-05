@@ -2,6 +2,7 @@
 
 import os
 from typing import List
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,6 +12,29 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def sanitize_api_keys(self) -> "Settings":
+        """Defensively sanitize API keys and URLs to strip leading/trailing spaces and quotes."""
+        keys_to_clean = [
+            "GEMINI_API_KEY",
+            "GROQ_API_KEY",
+            "SARVAM_API_KEY",
+            "QDRANT_API_KEY",
+            "QDRANT_URL",
+            "SUPABASE_URL",
+            "SUPABASE_ANON_KEY",
+            "SUPABASE_SERVICE_ROLE_KEY",
+            "SUPABASE_JWT_SECRET",
+            "LANGFUSE_PUBLIC_KEY",
+            "LANGFUSE_SECRET_KEY",
+        ]
+        for key in keys_to_clean:
+            val = getattr(self, key, None)
+            if isinstance(val, str):
+                cleaned = val.strip().strip("'\"").strip()
+                setattr(self, key, cleaned)
+        return self
 
     # Application Info
     APP_NAME: str = "Nagrik AI"
@@ -35,9 +59,13 @@ class Settings(BaseSettings):
     PRIMARY_MODEL: str = "gemini-3.7-flash"
     SECONDARY_MODEL: str = "gemini-3.5-flash-lite"
     
+    # Tertiary & STT Fallback (Groq)
     GROQ_API_KEY: str = ""
     FALLBACK_MODEL: str = "llama-3.3-70b-versatile"
     GROQ_WHISPER_MODEL: str = "whisper-large-v3"
+
+    # Multilingual Text-to-Speech (Sarvam AI Primary + Edge-TTS Fallback)
+    SARVAM_API_KEY: str = ""
 
     # Vector Database (Qdrant Cloud with Local Fallback)
     QDRANT_URL: str = ""
@@ -51,6 +79,7 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: str = ""
     SUPABASE_JWT_SECRET: str = ""
     SQLITE_DB_PATH: str = "data/nagrik_local.db"
+    ADMIN_API_KEY: str = "nagrik-super-secret-admin-key-2026"
 
     # Observability & Tracing (Langfuse)
     LANGFUSE_PUBLIC_KEY: str = ""

@@ -80,6 +80,7 @@ export function App() {
   };
 
   const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_WELCOME_MESSAGE]);
+  const [conversationId, setConversationId] = useState<string>(() => 'conv_' + Math.random().toString(36).substring(2, 11));
   const [inputQuery, setInputQuery] = useState<string>('');
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [isTTSEnabled, setIsTTSEnabled] = useState<boolean>(false);
@@ -118,6 +119,7 @@ export function App() {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
+    setConversationId('conv_' + Math.random().toString(36).substring(2, 11));
     setMessages([
       {
         ...INITIAL_WELCOME_MESSAGE,
@@ -160,6 +162,10 @@ export function App() {
     abortControllerRef.current = abortController;
 
     let fullAnswer = '';
+
+    const historyPayload = messages
+      .filter((m) => m.content && m.content.trim())
+      .map((m) => ({ role: m.role, content: m.content }));
 
     await streamChatQuery(
       query,
@@ -232,7 +238,9 @@ export function App() {
           }
         },
       },
-      abortController
+      abortController,
+      conversationId,
+      historyPayload
     );
   };
 

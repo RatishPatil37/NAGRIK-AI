@@ -1,8 +1,13 @@
 """Nagrik AI - FastAPI Application Gateway.
 Asynchronous REST & Server-Sent Events (SSE) Municipal Service Engine.
 """
-
+import sys
 from contextlib import asynccontextmanager
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -28,15 +33,24 @@ async def lifespan(app: FastAPI):
 
     # 1. Database Initialization
     print("[Startup] Initializing Database Adapter...")
-    await db_adapter.initialize()
+    try:
+        await db_adapter.initialize()
+    except Exception as e:
+        print(f"[Startup] WARNING: Non-fatal error during database initialization: {e}")
 
     # 2. Model Pre-warming
     print("[Startup] Pre-warming FastEmbed Dense & Sparse models...")
-    ModelPrewarmer.load_and_prewarm()
+    try:
+        ModelPrewarmer.load_and_prewarm()
+    except Exception as e:
+        print(f"[Startup] WARNING: FastEmbed prewarm non-fatal error: {e}")
 
     # 3. Vector Store Initialization
     print("[Startup] Ensuring Qdrant Hybrid Collection...")
-    hybrid_retriever.ensure_collection()
+    try:
+        hybrid_retriever.ensure_collection()
+    except Exception as e:
+        print(f"[Startup] WARNING: Non-fatal error during Qdrant collection setup: {e}")
 
     print("✅ Nagrik AI Gateway is online and ready for citizen traffic.")
     print("=" * 60)

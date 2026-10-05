@@ -32,6 +32,10 @@ langfuse>=4.16.0              # Production Telemetry & Request Tracing
 # Asynchronous HTTP Client
 httpx>=0.28.1                 # ASGI Testing & Async External API Calls
 
+# Audio TTS & Document PDF Parsing
+pypdf>=5.0.0
+edge-tts>=7.0.0
+
 # Executive Analytics & Statistical Alert Thresholds (2σ Deviation)
 numpy>=2.0.0
 pandas>=2.0.0

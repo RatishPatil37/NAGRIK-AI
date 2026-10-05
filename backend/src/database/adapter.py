@@ -282,5 +282,117 @@ class DatabaseAdapter:
 
         return await asyncio.to_thread(_list)
 
+    # --- Conversation & Message Operations ---
+    async def create_conversation(
+        self,
+        user_id: Optional[str] = None,
+        ward_id: Optional[int] = 4,
+        language_code: str = "en",
+        title: str = "New Inquiry"
+    ) -> str:
+        import uuid
+        conv_id = str(uuid.uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+
+        if self._use_supabase and self._supabase_client:
+            try:
+                self._supabase_client.table("conversations").insert({
+                    "id": conv_id,
+                    "user_id": user_id,
+                    "title": title,
+                    "ward_id": ward_id,
+                    "language_code": language_code,
+                    "created_at": now,
+                    "updated_at": now,
+                }).execute()
+                return conv_id
+            except Exception as e:
+                print(f"[DatabaseAdapter] Supabase create_conversation error: {e}. Falling back to SQLite.")
+
+        def _insert():
+            self._ensure_sqlite_ready()
+            with sqlite3.connect(self._sqlite_path) as conn:
+                conn.cursor().execute(
+                    "INSERT INTO conversations (id, user_id, title, ward_id, language_code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (conv_id, user_id, title, ward_id, language_code, now, now)
+                )
+                conn.commit()
+
+        await asyncio.to_thread(_insert)
+        return conv_id
+
+    async def save_message(
+        self,
+        conversation_id: str,
+        role: str,
+        content: str,
+        citations: Optional[List[Dict[str, Any]]] = None,
+        metrics: Optional[Dict[str, Any]] = None
+    ) -> str:
+        import uuid
+        msg_id = str(uuid.uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+        citations_json = json.dumps(citations or [])
+        metrics_json = json.dumps(metrics or {})
+
+        if self._use_supabase and self._supabase_client:
+            try:
+                self._supabase_client.table("messages").insert({
+                    "id": msg_id,
+                    "conversation_id": conversation_id,
+                    "role": role,
+                    "content": content,
+                    "citations": citations or [],
+                    "metrics": metrics or {},
+                    "created_at": now,
+                }).execute()
+                return msg_id
+            except Exception as e:
+                print(f"[DatabaseAdapter] Supabase save_message error: {e}. Falling back to SQLite.")
+
+        def _insert():
+            self._ensure_sqlite_ready()
+            with sqlite3.connect(self._sqlite_path) as conn:
+                conn.cursor().execute(
+                    "INSERT INTO messages (id, conversation_id, role, content, citations, metrics, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (msg_id, conversation_id, role, content, citations_json, metrics_json, now)
+                )
+                conn.commit()
+
+        await asyncio.to_thread(_insert)
+        return msg_id
+
+    async def get_conversation_history(self, conversation_id: str, limit: int = 6) -> List[Dict[str, Any]]:
+        if self._use_supabase and self._supabase_client:
+            try:
+                res = self._supabase_client.table("messages").select("*").eq("conversation_id", conversation_id).order("created_at", desc=False).limit(limit).execute()
+                if res.data:
+                    return [{"role": m["role"], "content": m["content"]} for m in res.data]
+            except Exception as e:
+                print(f"[DatabaseAdapter] Supabase get_conversation_history error: {e}. Falling back to SQLite.")
+
+        def _get():
+            self._ensure_sqlite_ready()
+            with sqlite3.connect(self._sqlite_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT ?",
+                    (conversation_id, limit)
+                )
+                return [{"role": row["role"], "content": row["content"]} for row in cursor.fetchall()]
+
+        return await asyncio.to_thread(_get)
+
+    async def is_healthy(self) -> bool:
+        if self._use_supabase and self._supabase_client:
+            try:
+                res = self._supabase_client.table("municipal_wards").select("ward_id").limit(1).execute()
+                return bool(res.data)
+            except Exception:
+                return False
+        return self._initialized
+
 
 db_adapter = DatabaseAdapter()
+

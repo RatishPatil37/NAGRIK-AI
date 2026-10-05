@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "edge-tts>=7.0.0",
     "fastapi>=0.142.2",
     "fastembed>=0.8.1",
     "google-genai>=2.26.0",
@@ -15,6 +16,7 @@ dependencies = [
     "pandas>=2.0.0",
     "pydantic-settings>=2.15.0",
     "pyjwt>=2.10.0",
+    "pypdf>=5.0.0",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "python-multipart>=0.0.32",
@@ -23,3 +25,9 @@ dependencies = [
     "supabase>=2.31.0",
     "uvicorn[standard]>=0.54.0",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["backend/tests"]
+asyncio_mode = "auto"
+
