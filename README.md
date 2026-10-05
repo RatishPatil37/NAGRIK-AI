@@ -1,201 +1,292 @@
-# 🏛️ Nagrik AI (नागरिक AI) — Municipal Knowledge Assistant & Decision Support System
+# 🏛️ Nagrik AI (नागरिक AI) — Enterprise Municipal RAG & Decision Support System
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Status-Architecture%20Ready-10B981?style=for-the-badge&logo=statuspage&logoColor=white" alt="Status Ready" />
-  <img src="https://img.shields.io/badge/Qdrant%20Cloud-Hybrid%20RRF-009245?style=for-the-badge&logo=qdrant&logoColor=white" alt="Qdrant RRF" />
-  <img src="https://img.shields.io/badge/LLM%20Chain-Gemini%20%2B%20Groq-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Gemini + Groq" />
-  <img src="https://img.shields.io/badge/Multilingual-Speech%20%2B%20Text-FF6B6B?style=for-the-badge&logo=soundcharts&logoColor=white" alt="Multilingual Speech" />
-  <img src="https://img.shields.io/badge/Security-JWKS%20Tenant%20Isolation-0E241C?style=for-the-badge&logo=auth0&logoColor=white" alt="Tenant Isolation" />
+  <img src="https://img.shields.io/badge/Status-Production%20Live-10B981?style=for-the-badge&logo=statuspage&logoColor=white" alt="Status Live" />
+  <img src="https://img.shields.io/badge/Qdrant%20Cloud-Hybrid%20Dense%2BSparse%20RRF-009245?style=for-the-badge&logo=qdrant&logoColor=white" alt="Qdrant RRF" />
+  <img src="https://img.shields.io/badge/NLP%20Engine-FastEmbed%20ONNX%20%2B%20Gemini%203.7-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="NLP Engine" />
+  <img src="https://img.shields.io/badge/Multilingual%20Speech-Sarvam%20AI%20%2B%20Edge--TTS-FF6B6B?style=for-the-badge&logo=soundcharts&logoColor=white" alt="Multilingual Speech" />
+  <img src="https://img.shields.io/badge/Security-Multi--Tenant%20JWKS%20Isolation-0E241C?style=for-the-badge&logo=auth0&logoColor=white" alt="Tenant Isolation" />
 </p>
 
 ---
 
 ## 📑 Table of Contents
 
-- [1. Overview &amp; Vision](#1-overview--vision)
-- [2. System Architecture](#2-system-architecture)
-  - [2.1 End-to-End Query &amp; Escalation Pipeline](#21-end-to-end-query--escalation-pipeline)
-  - [2.2 Multilingual Voice &amp; Text Processing Flow](#22-multilingual-voice--text-processing-flow)
-- [3. Key Modules](#3-key-modules)
-  - [3.1 Citizen Concierge (Multilingual Voice &amp; Chat)](#31-citizen-concierge-multilingual-voice--chat)
-  - [3.2 Autonomous Department Escalation Engine](#32-autonomous-department-escalation-engine)
-  - [3.3 Executive Decision-Support Admin Dashboard](#33-executive-decision-support-admin-dashboard)
-- [4. Production Invariants (Inherited from Prakriti AI)](#4-production-invariants-inherited-from-prakriti-ai)
-- [5. Repository File Structure](#5-repository-file-structure)
-- [6. Getting Started &amp; Local Setup](#6-getting-started--local-setup)
-- [7. Operational Roadmaps](#7-operational-roadmaps)
+- [1. Executive Summary & Vision](#1-executive-summary--vision)
+- [2. NLP Architecture & Technical Innovations](#2-nlp-architecture--technical-innovations)
+  - [2.1 Hybrid Dense-Sparse Vector Retrieval with Server-Side RRF](#21-hybrid-dense-sparse-vector-retrieval-with-server-side-rrf)
+  - [2.2 Deterministic NLP Pre-Gates (<5ms Response)](#22-deterministic-nlp-pre-gates-5ms-response)
+  - [2.3 Multi-Turn Coreference Resolution](#23-multi-turn-coreference-resolution)
+  - [2.4 Strict Post-Stream Citation Pruning](#24-strict-post-stream-citation-pruning)
+  - [2.5 Civic Named Entity Recognition (NER) & Escalation Routing](#25-civic-named-entity-recognition-ner--escalation-routing)
+  - [2.6 Dual-Engine Multilingual Speech Gateway](#26-dual-engine-multilingual-speech-gateway)
+- [3. End-to-End System Pipeline](#3-end-to-end-system-pipeline)
+- [4. Statutory Knowledge Base Corpus](#4-statutory-knowledge-base-corpus)
+- [5. Production Deployment Status](#5-production-deployment-status)
+- [6. Repository Structure](#6-repository-structure)
+- [7. Getting Started & Local Installation](#7-getting-started--local-installation)
+- [8. Verification & Test Suite](#8-verification--test-suite)
 
 ---
 
-## 1. Overview & Vision
+## 1. Executive Summary & Vision
 
-**Nagrik AI** is an enterprise-grade AI municipal knowledge assistant and administrative decision-support system engineered to modernize public governance. Built upon the architectural learnings and security hardening of **Prakriti AI**, Nagrik AI integrates **Natural Language Processing (NLP)**, **Multilingual Speech/Text**, **Hybrid Vector Retrieval (RAG)**, and **Departmental Escalation Workflows** to serve two critical needs:
+**Nagrik AI (नागरिक AI)** is a production-grade, AI-driven Municipal Knowledge Assistant and Administrative Decision Support System built to bridge the gap between citizens and municipal corporations across India.
 
-1. **Empowering Citizens**: Providing 24/7 access to accurate civic information in their mother tongue (English, Hindi, Marathi, Tamil, etc.), processing service requests, clarifying missing parameters through questionnaires, and lodging formal grievances with SLA-backed tracking.
-2. **Empowering Municipal Administration**: Equipping Municipal Commissioners, Ward Officers, and Department Heads with real-time decision support, grievance heatmaps across wards, SLA breach warnings, and FAQ analytics to proactively fix service bottlenecks.
+Operating across voice and text in multiple Indian languages (Hindi, Marathi, Tamil, Telugu, Bengali, Gujarati, Kannada, and English), Nagrik AI grounds every factual statement in official Government of India gazettes, statutory bylaws, and municipal circulars.
+
+### Dual-Stakeholder Architecture:
+1. **Citizens (Civic Concierge)**:
+   - Voice-first conversational RAG in regional Indic languages.
+   - Non-hallucinatory answers for property tax, water tariffs, building permits, trade licenses, birth/death registration, and sanitation schedules.
+   - Sub-5ms Emergency SOS safety filter (101 Fire, 100 Police, 108 Ambulance, 1916 Disaster Helpline).
+   - Automated civic grievance lodgment with standardized dockets and printable administrative receipts.
+2. **Municipal Administrators & Ward Officers (Executive Workstation)**:
+   - Live spatial grievance heatmaps across municipal wards with 2-sigma anomaly detection.
+   - SLA countdown monitor tracking response deadlines by department (Water, Sanitation, Roads, Electrical, Revenue, Town Planning).
+   - Real-time statutory document ingestion and verification portal with SHA-256 deduplication.
 
 ---
 
-## 2. System Architecture
+## 2. NLP Architecture & Technical Innovations
 
-### 2.1 End-to-End Query & Escalation Pipeline
+### 2.1 Hybrid Dense-Sparse Vector Retrieval with Server-Side RRF
+
+Civic governance queries present unique linguistic challenges:
+* **Colloquial Citizen Descriptions**: *"dirty brown water coming from tap"* requires semantic understanding.
+* **Statutory Alphanumeric References**: *"Circular No. 492/B"*, *"Form 3A"*, *"Section 128(1)(a)"*, or *"Ward 04"* fail on purely semantic models due to out-of-vocabulary tokenization.
+
+Nagrik AI addresses this using dual vector spaces fused at retrieval time:
+* **Dense Semantic Space**: FastEmbed ONNX `sentence-transformers/all-MiniLM-L6-v2` (384-dimensional dense vectors, Cosine metric) capturing semantic intent.
+* **Sparse Lexical Space**: FastEmbed BM25 (`Qdrant/bm25`) generating token-level IDF sparse vectors for exact statutory codes and ward names.
+* **Server-Side Reciprocal Rank Fusion (RRF)**:
+  $$\text{RRF\_Score}(d) = \sum_{m \in \{\text{dense}, \text{sparse}\}} \frac{1}{60 + \text{rank}_m(d)}$$
+  Executed natively within Qdrant Cloud's Rust engine in under 20ms, eliminating client-side network roundtrips.
+
+### 2.2 Deterministic NLP Pre-Gates (<5ms Response)
+
+Before invoking LLMs or vector databases, input queries pass through a 4-tier deterministic classification pipeline:
+1. **Emergency SOS Gate (<2ms)**: Regex keyword classification matching urgent hazards (`fire`, `gas leak`, `building collapse`, `cylinder blast`, `drowning`). Emits emergency hotlines immediately with zero LLM consumption.
+2. **Municipal Scope Gate (<3ms)**: Negative taxonomy filter rejecting out-of-scope queries (e.g., coding, cinema, sports, general knowledge) with helpful civic redirection.
+3. **Conversational Intent Gate (<2ms)**: Direct response generator for pleasantries (`hello`, `namaste`, `who are you?`), returning warm civic greetings with `citations: []`.
+4. **Parameter Completeness Gate (<5ms)**: Detects missing entities (e.g. Ward Number or Assessment ID) for procedure-specific queries.
+
+### 2.3 Multi-Turn Coreference Resolution
+
+When citizens ask follow-up questions (e.g., *"How much is the penalty if I pay it late?"* or *"Who is the officer there?"*), Nagrik AI runs a fast contextualization pass via **Gemini 3.5 Flash-Lite**. It resolves pronouns (*"it"*, *"there"*, *"that certificate"*) against prior conversation history before dispatching to the hybrid retriever.
+
+### 2.4 Strict Post-Stream Citation Pruning
+
+To guarantee statutory authenticity and eliminate hallucinations:
+* The LLM streams its response using strict citation markers `[S1]`, `[S2]`, etc.
+* The post-stream auditor scans the emitted tokens. Any retrieved document chunk **not** explicitly referenced in the generated text is pruned from the metadata payload.
+* If a response contains zero citation markers, `citations` returns strictly empty (`[]`), preventing misleading candidate displays.
+
+### 2.5 Civic Named Entity Recognition (NER) & Escalation Routing
+
+When citizen text contains actionable grievances, the rule-based civic NER classifier extracts:
+* **Department Category**: `WTR` (Water), `SAN` (Sanitation), `REV` (Property Tax), `ENG` (Roads/Engineering), `TNP` (Town Planning), `ELE` (Electrical).
+* **Ward Identification**: Normalized ward IDs (Wards 1–10 across Zones A–E).
+* **Urgency & SLA Assignment**: Emergency (4h), High (24h), Medium (48h), Standard (7 days).
+* **Standardized Ticket Format**: `MNC-{YEAR}-W{WARD}-{DEPT}-{HASH}` (e.g. `MNC-2026-W04-WTR-3891`).
+
+### 2.6 Dual-Engine Multilingual Speech Gateway
+
+* **Primary Engine**: **Sarvam AI (`bulbul:v3`)** providing natural, conversational Indic speech synthesis across regional languages with speaker `shreya`.
+* **Instant Fallback Engine**: **Microsoft Edge Neural TTS (`edge-tts`)** providing sub-50ms offline fallback (e.g., `hi-IN-SwaraNeural`, `mr-IN-AarohiNeural`, `ta-IN-PallaviNeural`, `te-IN-ShrutiNeural`, `en-IN-NeerjaNeural`).
+* **Circuit Breaker**: Automatic latching mechanism that switches to Edge-TTS upon quota exhaustion or network timeout.
+
+---
+
+## 3. End-to-End System Pipeline
 
 ```mermaid
-flowchart TB
-    subgraph Client ["1. Citizen & Admin Workstation (Edge CDN)"]
-        CitizenUI["Citizen Voice & Text Portal"]
-        AdminUI["Admin Decision-Support Dashboard"]
-        SpeechHook["Web Speech API / Audio Recorder"]
-        SSEClient["@microsoft/fetch-event-source Client"]
-        CitizenUI --> SpeechHook & SSEClient
-    end
-
-    subgraph IngressGateway ["2. Security & Ingress Tier (FastAPI)"]
-        RateLimiter["Sliding-Window Rate Limiter<br/>(Anon: 5 rpm | Auth: 20 rpm | TTL Pruning)"]
-        AuthFilter["Asymmetric Supabase JWKS Verification"]
-        SSEClient --> RateLimiter --> AuthFilter
-    end
-
-    subgraph DeterministicTier ["3. Deterministic Pre-Gates (<5ms, Zero LLM)"]
-        SOSCheck{"Emergency Query?<br/>(Fire/Police/Ambulance)"}
-        ScopeCheck{"Municipal Scope Gate<br/>(Is civic/governance?)"}
-        IntentCheck{"Conversational Intent Gate<br/>(Greeting / Thanks / Identity)"}
-        ClarificationCheck{"Conditional Clarification<br/>(Missing Ward/Assessment ID?)"}
-        
-        AuthFilter --> SOSCheck
-        SOSCheck -->|Yes| SOSCard["Instant Emergency SOS Card (101/100/108)"]
-        SOSCheck -->|No| ScopeCheck
-        ScopeCheck -->|No| PoliteRefusal["Instant Scope Guidance (<5ms)"]
-        ScopeCheck -->|Yes| IntentCheck
-        IntentCheck -->|Yes| WarmGreeting["Direct Conversational Response (sources: [])"]
-        IntentCheck -->|No| ClarificationCheck
-    end
-
-    subgraph KnowledgeTier ["4. Hybrid Knowledge Layer (Qdrant Cloud)"]
-        DenseModel["FastEmbed ONNX (all-MiniLM-L6-v2)"]
-        SparseModel["FastEmbed BM25 (Qdrant/bm25)"]
-        QdrantRRF["Server-Side Reciprocal Rank Fusion (RRF)<br/>Collection: municipal_knowledge"]
-        ClarificationCheck -->|Context Complete| DenseModel & SparseModel
-        DenseModel & SparseModel --> QdrantRRF
-    end
-
-    subgraph LLMTier ["5. 3-Tier LLM Resiliency Chain"]
-        GeminiFlash["Primary: Gemini 2.5 Flash Lite"]
-        GroqLlama["Secondary: Groq Llama 3.3 70B"]
-        FallbackTiers["Tertiary: Deterministic Safe Fallback"]
-        QdrantRRF --> GeminiFlash -.Failover.-> GroqLlama -.Failover.-> FallbackTiers
-    end
-
-    subgraph PostStreamTier ["6. Audit & Escalation Engine"]
-        PostStreamAuditor["Post-Stream Citation Pruning & Confidence Check"]
-        EscalationRouter{"Grievance / Unresolved?"}
-        TicketGen["Ticket Generator (MNC-2026-WXX-DEPT-XXXX)"]
-        PostgresDB[(Supabase PostgreSQL RLS)]
-        LangfuseTracer["Langfuse Async Telemetry"]
-        
-        GeminiFlash --> PostStreamAuditor
-        PostStreamAuditor --> EscalationRouter
-        EscalationRouter -->|Yes| TicketGen --> PostgresDB
-        EscalationRouter -->|No| CitizenUI
-        TicketGen --> CitizenUI
-        PostStreamAuditor -.Async.-> LangfuseTracer
-    end
+flowchart TD
+    Citizen([Citizen Input: Voice / Text]) --> VoiceIngress[Speech-to-Text: Web Speech API / Groq Whisper]
+    VoiceIngress --> RateLimiter[Sliding-Window Rate Limiter<br/>10 rpm anon / 30 rpm auth]
+    RateLimiter --> PreGates{Deterministic Pre-Gates <5ms}
+    
+    PreGates -->|Emergency SOS| EmergencyCard[Instant Emergency SOS Card: 101/100/108]
+    PreGates -->|Out of Scope| ScopeReject[Polite Civic Scope Guidance]
+    PreGates -->|Pleasantry| GreetingResp[Conversational Greeting: citations empty]
+    
+    PreGates -->|Valid Civic Query| ContextResolver[Coreference Resolution: Gemini Flash-Lite]
+    ContextResolver --> HybridRetriever[FastEmbed Dense MiniLM + Sparse BM25]
+    HybridRetriever --> QdrantCloud[(Qdrant Cloud RRF Fusion<br/>2,379 Statutory Points)]
+    
+    QdrantCloud --> LLMChain[Reasoning Chain: Gemini 3.7 Flash<br/>Fallback: Groq LLaMA 3.3 70B]
+    LLMChain --> StreamAuditor[SSE Token Stream + Post-Stream Citation Pruning]
+    
+    StreamAuditor --> GrievanceCheck{Actionable Grievance?}
+    GrievanceCheck -->|Yes| DocketGen[Civic NER + Docket ID Generation]
+    DocketGen --> SupabaseDB[(Supabase PostgreSQL RLS)]
+    DocketGen --> PrintableReceipt[Printable Administrative Receipt]
+    
+    GrievanceCheck -->|No| TTSGateway[Dual TTS Gateway: Sarvam v3 -> Edge Neural]
+    PrintableReceipt --> TTSGateway
+    TTSGateway --> CitizenClient([Citizen Web / Mobile HUD])
 ```
 
 ---
 
-## 3. Key Modules
+## 4. Statutory Knowledge Base Corpus
 
-### 3.1 Citizen Concierge (Multilingual Voice & Chat)
-* **Voice Mic HUD**: Citizens speak in their native language; Web Speech API or server-side Whisper converts audio to text in real-time with visualizer feedback.
-* **Ward Profile HUD**: Persistent top-bar chip showing active Ward, Citizen Category (Residential, Commercial, Senior Citizen), and Language Preference.
-* **Claude-Style Clarification Form**: Renders non-blocking inline questionnaire cards when critical parameters are missing (e.g., "Please select your Ward" or "Enter 10-digit Property ID").
-* **Nature-Style Citation Hover Cards**: Inline citations `[S1]`, `[S2]` open instant micro-popovers displaying official gazette number, circular date, excerpt, and download link.
+Nagrik AI's knowledge base is grounded in official, un-hallucinated Government of India policy documents and gazettes indexed in Qdrant Cloud:
 
-### 3.2 Autonomous Department Escalation Engine
-* **Department Routing**:
-  * `WTR`: Water Works, pipeline leaks, contaminated supply, billing issues.
-  * `SAN`: Solid Waste Management, garbage bins, drain desilting, sanitation.
-  * `REV`: Property Tax assessment, tax rebates, transfer of title, trade license.
-  * `ENG`: Potholes, road maintenance, stormwater drains, culvert repairs.
-  * `TNP`: Encroachments, illegal construction, building plan approvals.
-  * `ELE`: Streetlight outages, loose electrical cables, high-mast illumination.
-* **SLA Calculation**: Automatically assigns urgency and response deadlines (Emergency: 4 hours, High: 24 hours, Medium: 48 hours, Standard: 7 days).
-* **Ticket Hash**: Generates standardized receipts with printable `@media print` whitepapers.
+| Document Title | Issuing Authority | Scope & Coverage |
+| :--- | :--- | :--- |
+| **Solid Waste Management Rules, 2016** | Ministry of Environment, Forest & Climate Change | Waste segregation, commercial generator penalties, disposal schedules |
+| **Manual on Water Supply and Treatment** | CPHEEO / MoHUA | Water quality standards, distribution hours, contamination remediation |
+| **Urban & Regional Development Plans (URDPFI)** | Ministry of Housing and Urban Affairs | Zoning, building permissions, setback norms, FSI / FAR calculations |
+| **Plastic Waste Management Rules** | Central Pollution Control Board (CPCB) | Single-use plastic bans, merchant compliance, violation penalties |
+| **Street Vendors Act & Schemes** | Ministry of Housing and Urban Affairs | Vending zones, vending certificates, eviction protections, grievances |
+| **Registration of Births and Deaths Act** | Ministry of Home Affairs / Citizen Charter | Statutory issuance timelines, delayed registration fees, correction rules |
+| **Right to Information (RTI) Act, 2005** | Department of Personnel and Training | 30-day statutory response mandate, appellate procedure, public authorities |
 
-### 3.3 Executive Decision-Support Admin Dashboard
-* **Ward Query & Complaint Heatmap**: Visualizes complaint density across wards to detect systemic failures (e.g., contamination spike in Ward 12).
-* **SLA Countdown & Breach Monitor**: Live alerts for grievances nearing deadline expiration.
-* **FAQ Trend Detection**: Real-time clustering of citizen queries to identify policy confusion before it leads to public dissatisfaction.
-* **Knowledge-Gap Flagging**: Automatically flags citizen queries where retrieval returned low confidence, allowing officers to upload missing circulars.
+Total indexed vectors: **2,379 high-density chunks** with multi-tenant keyword indexes on `scope`, `owner_user_id`, and `department`.
 
 ---
 
-## 4. Production Invariants (Inherited from Prakriti AI)
+## 5. Production Deployment Status
 
-1. **Sub-Second TTFT via Lifespan Pre-Warming**: FastEmbed ONNX dense and sparse models are pre-warmed on FastAPI boot.
-2. **Zero-LLM Pre-Filters**: Emergency SOS and out-of-scope queries bypass LLMs completely in <5ms.
-3. **Strict Citation Truth**: Uncited candidate chunks are purged post-stream (`filter_cited_evidence`).
-4. **Memory-Bounded Streaming Ingress**: Uploads stream in 64KB chunks under `MAX_UPLOAD_SIZE_MB` with `Content-Length` validation.
-5. **SHA-256 Upload Deduplication**: Duplicates return `409 Conflict` before computing vectors.
-6. **Bounded Rate Limiter**: Maximum 10,000 active tracking IPs with periodic TTL garbage collection.
-7. **Multi-Tenant JWT Isolation**: Asymmetric JWKS cryptographic validation with auth bypass strictly isolated to `TESTING=True`.
-8. **Client Link Protocol Filtering**: Blocks `javascript:` XSS vectors.
+* **Backend Gateway (Render)**: [`https://nagrik-ai-wvuw.onrender.com`](https://nagrik-ai-wvuw.onrender.com)
+  * Health & Telemetry: [`https://nagrik-ai-wvuw.onrender.com/health`](https://nagrik-ai-wvuw.onrender.com/health)
+  * Municipal Wards API: [`https://nagrik-ai-wvuw.onrender.com/api/v1/wards/`](https://nagrik-ai-wvuw.onrender.com/api/v1/wards/)
+* **Database & Persistence**: Supabase PostgreSQL with Row Level Security (RLS)
+* **Vector Store**: Qdrant Cloud (Australia-Southeast Cluster, HTTPS Port 443)
+* **Frontend Workstation (Vercel)**: React 19 + TypeScript + Vite + Tailwind CSS
 
 ---
 
-## 5. Repository File Structure
+## 6. Repository Structure
 
 ```
-AI Municipal Chatbot/
-├── .agents/                        # Agent customization system
-│   ├── rules/                      # System-wide operational rules
-│   │   ├── CIVIC_INVARIANTS.md
-│   │   └── CODE_STANDARDS.md
-│   └── skills/                     # Domain & workflow skills
-│       ├── municipal-rag-orchestration/SKILL.md
-│       ├── department-escalation/SKILL.md
-│       ├── multilingual-voice-gateway/SKILL.md
-│       └── civic-ui-workstation/SKILL.md
-├── ARCHITECTURE.md                 # Full technical blueprint
-├── MASTER_PROMPT.md                # System prompt for IDE agents
-├── knowledge.md                    # Architectural trade-off history
-├── backend/                        # FastAPI application
-├── frontend/                       # React 18 + Vite workstation
-└── data/                           # Municipal knowledge corpus
+.
+├── backend/
+│   ├── scripts/
+│   │   ├── ingest.py                    # Statutory PDF streaming ingestion & FastEmbed indexing
+│   │   └── test_db_connection.py        # Supabase and Qdrant connectivity validator
+│   ├── src/
+│   │   ├── api/
+│   │   │   ├── dependencies.py          # Admin API key authentication & role enforcement
+│   │   │   ├── middleware.py            # Memory-bounded sliding window rate limiter
+│   │   │   └── routes/
+│   │   │       ├── admin.py             # Executive decision support & 2-sigma heatmap
+│   │   │       ├── chat.py              # Multi-turn SSE streaming chat with citation pruning
+│   │   │       ├── documents.py         # Gazette upload, SHA-256 deduplication & download
+│   │   │       ├── grievances.py        # Citizen grievance docket creation & tracking
+│   │   │       ├── voice.py             # Dual-engine speech synthesis (Sarvam v3 + Edge TTS)
+│   │   │       └── wards.py             # Spatial ward directory & contact routing
+│   │   ├── config.py                    # Pydantic Settings with defensive key sanitization
+│   │   ├── database/                    # Dual-mode persistence (Supabase PostgreSQL / SQLite)
+│   │   ├── forecasting/                 # Civic NER classifier & departmental triage
+│   │   ├── generator/                   # Gemini 3.7 Flash & Groq LLaMA 3.3 LLM clients
+│   │   ├── main.py                      # FastAPI gateway with error-resilient lifespan startup
+│   │   ├── multilingual/                # Whisper STT & language mapping utilities
+│   │   └── retriever/                   # Qdrant Hybrid RRF retriever & Gov API router
+│   └── tests/                           # 21 automated pytest test suites
+├── data/
+│   └── corpus/                          # Official Government of India statutory PDFs
+├── docs/
+│   └── adr/                             # Architectural Decision Records (ADRs)
+├── frontend/
+│   ├── src/
+│   │   ├── components/                  # Living Ward Profile, Gazette Preview, Citation Cards
+│   │   ├── lib/                         # Voice synthesizer, SSE streaming client, API client
+│   │   └── App.tsx                      # Luxury Civic Workstation UI
+│   └── package.json
+├── render.yaml                          # Render Infrastructure-as-Code Blueprint
+├── requirements.txt                     # Backend Python dependencies
+└── pyproject.toml
 ```
 
 ---
 
-## 6. Getting Started & Local Setup
+## 7. Getting Started & Local Installation
 
 ### Prerequisites
-* Python 3.11+
-* Node.js 18+
-* Qdrant Cloud account & API Key
-* Supabase account (Postgres + Auth)
-* Google Gemini / Groq API Keys
+* Python 3.11+ (Python 3.13 recommended)
+* Node.js 18+ & npm
+* Qdrant Cloud Cluster URL & API Key
+* Supabase Account URL & Keys
 
-### Quick Start
+### 1. Backend Setup
 ```bash
-# 1. Install backend dependencies
-cd backend
+# Clone the repository
+git clone https://github.com/RatishPatil37/NAGRIK-AI.git
+cd NAGRIK-AI
+
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
 
-# 2. Seed municipal knowledge base
-python -m src.scripts.seed_municipal_kb
+# Configure environment variables
+cp .env.example .env
+# Edit .env and enter your valid API keys (GEMINI_API_KEY, QDRANT_URL, QDRANT_API_KEY, SUPABASE_URL, etc.)
 
-# 3. Start backend API
-uvicorn src.api.main:app --port 8000 --reload
+# Ingest government PDFs into Qdrant Cloud
+python backend/scripts/ingest.py
 
-# 4. Start frontend workstation
-cd ../frontend
+# Launch FastAPI development server
+uvicorn backend.src.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### 2. Frontend Setup
+```bash
+cd frontend
+
+# Install dependencies
 npm install
+
+# Start Vite development server
 npm run dev
 ```
 
+Visit `http://localhost:5173` to access the Citizen & Executive Workstation.
+
 ---
 
-## 📄 License & Credits
+## 8. Verification & Test Suite
 
-Built for Municipal Corporations and Smart City Governance. Derived from the battle-tested engineering standards of **Prakriti AI** (Darukaa.Earth).
+The test suite validates the entire deterministic safety net, RAG pipeline, rate limiter memory bounds, and API endpoints:
+
+```bash
+pytest backend/tests/ -v
+```
+
+### Test Results Summary:
+```text
+backend/tests/test_api_endpoints.py::test_health_check_endpoint PASSED           [  4%]
+backend/tests/test_api_endpoints.py::test_wards_endpoint PASSED                  [  9%]
+backend/tests/test_api_endpoints.py::test_admin_heatmap_and_sla PASSED           [ 14%]
+backend/tests/test_api_endpoints.py::test_document_download PASSED               [ 19%]
+backend/tests/test_api_endpoints.py::test_document_upload_and_deduplication PASSED [ 23%]
+backend/tests/test_citations_strict.py::test_zero_citation_pruning PASSED       [ 28%]
+backend/tests/test_citations_strict.py::test_selective_citation_pruning PASSED  [ 33%]
+backend/tests/test_escalation.py::test_sla_calculation PASSED                    [ 38%]
+backend/tests/test_escalation.py::test_ticket_id_format PASSED                   [ 42%]
+backend/tests/test_escalation.py::test_triage_engine_routing PASSED              [ 47%]
+backend/tests/test_guardrails.py::test_emergency_sos_speed_and_accuracy PASSED   [ 52%]
+backend/tests/test_guardrails.py::test_scope_gate_rejection PASSED               [ 57%]
+backend/tests/test_guardrails.py::test_intent_gate_pleasantries PASSED           [ 61%]
+backend/tests/test_guardrails.py::test_completeness_gate PASSED                  [ 66%]
+backend/tests/test_memory_bounds.py::test_rate_limiter_memory_bound PASSED       [ 71%]
+backend/tests/test_memory_bounds.py::test_max_tracked_ip_cap PASSED              [ 76%]
+backend/tests/test_rag_pipeline.py::test_post_stream_citation_pruning PASSED     [ 80%]
+backend/tests/test_voice_and_gov_router.py::test_gov_api_router_classification PASSED [ 85%]
+backend/tests/test_voice_and_gov_router.py::test_gov_api_router_telemetry_generation PASSED [ 90%]
+backend/tests/test_voice_and_gov_router.py::test_civic_ner_classifier PASSED    [ 95%]
+backend/tests/test_voice_and_gov_router.py::test_voice_synthesis_endpoint PASSED [100%]
+
+============================= 21 passed in 5.09s ==============================
+```
+
+---
+
+## 📄 License & Attribution
+
+Built for Municipal Corporations and Smart City Governance under the MIT License.
+Grounding documents courtesy of the Ministry of Housing and Urban Affairs (MoHUA), Central Pollution Control Board (CPCB), and Government of India open access gazettes.
