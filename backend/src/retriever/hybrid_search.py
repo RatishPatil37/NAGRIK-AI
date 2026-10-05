@@ -11,41 +11,59 @@ from backend.src.retriever.prewarm import ModelPrewarmer
 class HybridRetriever:
     def __init__(self):
         self._client: Optional[QdrantClient] = None
+        self._is_cloud_active: bool = False
         self.collection_name = settings.QDRANT_COLLECTION
+
+    @property
+    def is_cloud_active(self) -> bool:
+        return self._is_cloud_active
 
     def get_client(self) -> QdrantClient:
         if self._client is None:
             if settings.is_qdrant_cloud_configured:
-                print(f"[HybridRetriever] Connecting to Qdrant Cloud at {settings.QDRANT_URL}...")
-                self._client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY, timeout=30.0)
+                clean_key = "".join((settings.QDRANT_API_KEY or "").strip().strip("'\"`“”‘’").split())
+                clean_url = (settings.QDRANT_URL or "").strip().strip("'\"`“”‘’").rstrip("/")
+                key_masked = f"{clean_key[:6]}...{clean_key[-4:]} (len: {len(clean_key)})" if clean_key else "EMPTY"
+                print(f"[HybridRetriever] Connecting to Qdrant Cloud at {clean_url} with key {key_masked}...")
+
+                # 1. Try HTTPS Port 443 first (firewall / cloud proxy safe)
+                try:
+                    candidate = QdrantClient(url=clean_url, port=443, api_key=clean_key, timeout=30.0)
+                    _ = candidate.get_collections()
+                    self._client = candidate
+                    self._is_cloud_active = True
+                    print("[HybridRetriever] ✅ Connected successfully to Qdrant Cloud via port 443.")
+                except Exception as err_443:
+                    print(f"[HybridRetriever] Port 443 attempt failed ({err_443}). Trying default port 6333...")
+                    # 2. Try default Qdrant Port 6333
+                    try:
+                        candidate = QdrantClient(url=clean_url, port=6333, api_key=clean_key, timeout=30.0)
+                        _ = candidate.get_collections()
+                        self._client = candidate
+                        self._is_cloud_active = True
+                        print("[HybridRetriever] ✅ Connected successfully to Qdrant Cloud via port 6333.")
+                    except Exception as err_6333:
+                        print(f"[HybridRetriever] ⚠️ Qdrant Cloud failed on both ports 443 & 6333: {err_6333}")
+                        print(f"[HybridRetriever] Falling back to local offline Qdrant storage at {settings.QDRANT_LOCAL_PATH}...")
+                        self._client = QdrantClient(path=settings.QDRANT_LOCAL_PATH)
+                        self._is_cloud_active = False
             else:
                 print(f"[HybridRetriever] Using local Qdrant storage at {settings.QDRANT_LOCAL_PATH}...")
                 self._client = QdrantClient(path=settings.QDRANT_LOCAL_PATH)
+                self._is_cloud_active = False
         return self._client
 
     def ensure_collection(self):
         """Ensures the hybrid collection exists with dense and sparse vector configurations,
         and ensures keyword payload indexes exist for multi-tenant filtering.
-        Includes automatic fallback to local Qdrant storage if cloud authentication or connection fails.
         """
         client = self.get_client()
         collections = []
         try:
             collections = [c.name for c in client.get_collections().collections]
         except Exception as e:
-            if settings.is_qdrant_cloud_configured:
-                print(f"[HybridRetriever] WARNING: Qdrant Cloud connection/auth failed ({e}).")
-                print(f"[HybridRetriever] Falling back to local offline Qdrant storage at {settings.QDRANT_LOCAL_PATH}...")
-                try:
-                    self._client = QdrantClient(path=settings.QDRANT_LOCAL_PATH)
-                    client = self._client
-                    collections = [c.name for c in client.get_collections().collections]
-                except Exception as local_err:
-                    print(f"[HybridRetriever] ERROR: Local Qdrant initialization failed: {local_err}")
-                    return
-            else:
-                print(f"[HybridRetriever] ERROR: Could not connect to Qdrant: {e}")
-                return
+            print(f"[HybridRetriever] Non-fatal check error during collection listing: {e}")
+            return
 
         try:
             if self.collection_name not in collections:
@@ -60,6 +78,8 @@ class HybridRetriever:
                     },
                 )
                 print(f"[HybridRetriever] Collection '{self.collection_name}' created successfully.")
+            else:
+                print(f"[HybridRetriever] Collection '{self.collection_name}' verified and active.")
 
             # Ensure keyword payload indexes exist for scope, owner_user_id, and department
             for field in ["scope", "owner_user_id", "department"]:

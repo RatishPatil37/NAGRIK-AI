@@ -15,14 +15,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def sanitize_api_keys(self) -> "Settings":
-        """Defensively sanitize API keys and URLs to strip leading/trailing spaces and quotes."""
+        """Defensively sanitize API keys and URLs to strip whitespace, newlines, and quotes."""
         keys_to_clean = [
             "GEMINI_API_KEY",
             "GROQ_API_KEY",
             "SARVAM_API_KEY",
             "QDRANT_API_KEY",
-            "QDRANT_URL",
-            "SUPABASE_URL",
             "SUPABASE_ANON_KEY",
             "SUPABASE_SERVICE_ROLE_KEY",
             "SUPABASE_JWT_SECRET",
@@ -31,9 +29,18 @@ class Settings(BaseSettings):
         ]
         for key in keys_to_clean:
             val = getattr(self, key, None)
-            if isinstance(val, str):
-                cleaned = val.strip().strip("'\"").strip()
+            if isinstance(val, str) and val:
+                # Remove quotes, newlines, tabs, and carriage returns
+                cleaned = "".join(val.strip().strip("'\"`“”‘’").split())
                 setattr(self, key, cleaned)
+
+        urls_to_clean = ["QDRANT_URL", "SUPABASE_URL", "LANGFUSE_HOST", "CORS_URL"]
+        for u in urls_to_clean:
+            val = getattr(self, u, None)
+            if isinstance(val, str) and val:
+                cleaned = val.strip().strip("'\"`“”‘’").rstrip("/")
+                setattr(self, u, cleaned)
+
         return self
 
     # Application Info

@@ -105,7 +105,15 @@ async def health_check():
         "primary_model": settings.PRIMARY_MODEL,
         "secondary_model": settings.SECONDARY_MODEL,
         "fallback_model": settings.FALLBACK_MODEL,
-        "vector_store": "qdrant_cloud" if settings.is_qdrant_cloud_configured else "qdrant_local",
+        "vector_store": "qdrant_cloud" if hybrid_retriever.is_cloud_active else "qdrant_local",
+        "qdrant_telemetry": {
+            "configured": settings.is_qdrant_cloud_configured,
+            "cloud_active": hybrid_retriever.is_cloud_active,
+            "url": settings.QDRANT_URL,
+            "key_length": len(settings.QDRANT_API_KEY) if settings.QDRANT_API_KEY else 0,
+            "key_suffix": settings.QDRANT_API_KEY[-6:] if settings.QDRANT_API_KEY else "",
+            "collection": settings.QDRANT_COLLECTION,
+        },
         "database": "supabase" if settings.is_supabase_configured else "sqlite_local",
         "langfuse_tracing": settings.is_langfuse_configured,
     }
