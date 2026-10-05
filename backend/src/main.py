@@ -17,6 +17,7 @@ from backend.src.api.routes import admin, chat, documents, grievances, voice, wa
 from backend.src.config import settings
 from backend.src.database.adapter import db_adapter
 from backend.src.retriever.hybrid_search import hybrid_retriever
+from backend.src.retriever.indexer import auto_seed_if_empty
 from backend.src.retriever.prewarm import ModelPrewarmer
 
 
@@ -45,17 +46,18 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[Startup] WARNING: FastEmbed prewarm non-fatal error: {e}")
 
-    # 3. Vector Store Initialization
+    # 3. Vector Store Initialization & Auto-Seed
     print("[Startup] Ensuring Qdrant Hybrid Collection...")
     try:
         hybrid_retriever.ensure_collection()
+        auto_seed_if_empty()
     except Exception as e:
         print(f"[Startup] WARNING: Non-fatal error during Qdrant collection setup: {e}")
 
-    print("✅ Nagrik AI Gateway is online and ready for citizen traffic.")
+    print("[OK] Nagrik AI Gateway is online and ready for citizen traffic.")
     print("=" * 60)
     yield
-    print("🛑 Shutting down Nagrik AI Gateway...")
+    print("[SHUTDOWN] Shutting down Nagrik AI Gateway...")
 
 
 app = FastAPI(

@@ -7,13 +7,13 @@ import re
 from typing import Dict
 
 MUNICIPAL_TERM_MAPPING = {
-    r"\bpani\b|\bpaani\b|\bjal\b|\bthanneer\b": "water supply",
-    r"\bkachra\b|\bkooda\b|\bkachara\b|\bswachhata\b": "solid waste sanitation",
-    r"\bgaddha\b|\bgaddhe\b|\bsadak\b|\bkhadda\b": "pothole road repair",
-    r"\bkar\b|\btax barna\b|\bpatta\b|\bmakan tax\b": "property tax assessment",
-    r"\bbatti\b|\blight band\b|\bandhera\b": "streetlight outage",
-    r"\bmakaan permission\b|\bplot pass\b|\bnaksha pass\b": "building plan approval OBPAS",
-    r"\bchhat\b|\bdeewar\b|\bimarat\b": "building structure",
+    r"\b(pani|paani|jal|thanneer|पाणी|पाणीपुरवठा|जल|नल)\b": "water supply tariff pipeline leak",
+    r"\b(kachra|kooda|kachara|swachhata|कचरा|कचरापेटी|घाण|स्वच्छता|सफाई)\b": "solid waste sanitation segregation fine penalty",
+    r"\b(gaddha|gaddhe|sadak|khadda|खड्डे|खड्डा|रस्ता|रस्ते|सडक)\b": "pothole road repair civil engineering SLA",
+    r"\b(kar|tax barna|patta|makan tax|मालमत्ता कर|घरपट्टी|कर|टॅक्स|संपत्ती कर)\b": "property tax assessment rebate Section 128 early bird",
+    r"\b(batti|light band|andhera|दिवाबत्ती|स्ट्रीटलाईट|लाईट|विद्युत|बिजली)\b": "streetlight outage electrical feeder repair",
+    r"\b(makaan permission|plot pass|naksha pass|बांधकाम|बांधकाम परवानगी|इमारत|नकाशा|परवानगी|सेटबॅक|सेटबॅक्स)\b": "building plan approval OBPAS setback regulations SLA",
+    r"\b(chhat|deewar|imarat|भिंत|इमारत कोसळणे|गळती)\b": "building structure life safety emergency collapse",
 }
 
 

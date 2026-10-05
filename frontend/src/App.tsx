@@ -17,6 +17,7 @@ import {
   Clock,
   Hash,
   Compass,
+  MapPin,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WardHUD } from './components/civic/WardHUD';
@@ -28,6 +29,17 @@ import { ClarificationCard } from './components/chat/ClarificationCard';
 import { EscalationCard } from './components/chat/EscalationCard';
 import { ReceiptModal } from './components/chat/ReceiptModal';
 import { AdminDashboard } from './components/admin/AdminDashboard';
+import { ConversationSidebar } from './components/chat/ConversationSidebar';
+import {
+  getStoredSessions,
+  saveStoredSession,
+  deleteStoredSession,
+  clearAllStoredSessions,
+  generateSessionTitle,
+  type StoredSession,
+} from './lib/conversation';
+import { getTranslation } from './lib/i18n';
+import { detectClosestWard } from './lib/geo';
 import { fetchWards, streamChatQuery } from './lib/api';
 import { useVoiceRecognition, speakResponse } from './lib/voice';
 import { renderSecureCivicText } from './lib/sanitize';
@@ -40,22 +52,21 @@ import type {
   MunicipalWard,
 } from './types';
 
-const INITIAL_WELCOME_MESSAGE: ChatMessage = {
-  id: 'welcome',
-  role: 'assistant',
-  content:
-    'Welcome to **Nagrik AI (नागरिक AI)** — your official Municipal Operating System & Concierge.\n\n' +
-    'All intelligence is grounded deterministically in **2026 Municipal Gazettes**, **Property Tax Bylaws**, **Water Supply Charters**, and **Building Regulations** with zero hallucination.\n\n' +
-    'Ask any municipal inquiry below or select a statutory service to begin.',
-  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-};
-
 export function App() {
   const [wards, setWards] = useState<MunicipalWard[]>([]);
   const [selectedWardId, setSelectedWardId] = useState<number | null>(4); // Default: Bandra West
   const [language, setLanguage] = useState<string>('en-IN');
   const [isAdminMode, setIsAdminMode] = useState<boolean>(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+  const [isDetectingWard, setIsDetectingWard] = useState<boolean>(false);
+  const [wardNotification, setWardNotification] = useState<string | null>(null);
+
+  // Localization Dictionary
+  const t = getTranslation(language);
+
+  // Conversation Sessions (Max 20 with FIFO auto-pruning)
+  const [storedSessions, setStoredSessions] = useState<StoredSession[]>(() => getStoredSessions());
 
   // Dark / Light Theme Management
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -79,8 +90,29 @@ export function App() {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_WELCOME_MESSAGE]);
-  const [conversationId, setConversationId] = useState<string>(() => 'conv_' + Math.random().toString(36).substring(2, 11));
+  const [conversationId, setConversationId] = useState<string>(
+    () => 'conv_' + Math.random().toString(36).substring(2, 11)
+  );
+
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: 'welcome',
+      role: 'assistant',
+      content: t.welcomeMessage,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    },
+  ]);
+
+  // Update welcome message if language changes on fresh chat
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0].id === 'welcome') {
+        return [{ ...prev[0], content: t.welcomeMessage }];
+      }
+      return prev;
+    });
+  }, [language]);
+
   const [inputQuery, setInputQuery] = useState<string>('');
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [isTTSEnabled, setIsTTSEnabled] = useState<boolean>(false);
@@ -88,6 +120,18 @@ export function App() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Keyboard shortcut listener (Cmd+O / Ctrl+O for Sidebar)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        setIsSidebarOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Load Wards on startup
   useEffect(() => {
@@ -119,14 +163,58 @@ export function App() {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-    setConversationId('conv_' + Math.random().toString(36).substring(2, 11));
+    const newConvId = 'conv_' + Math.random().toString(36).substring(2, 11);
+    setConversationId(newConvId);
     setMessages([
       {
-        ...INITIAL_WELCOME_MESSAGE,
+        id: 'welcome',
+        role: 'assistant',
+        content: t.welcomeMessage,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ]);
     setIsStreaming(false);
+  };
+
+  const handleSelectSession = (session: StoredSession) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    setConversationId(session.id);
+    setSelectedWardId(session.wardId);
+    setLanguage(session.language);
+    setMessages(session.messages);
+    setIsStreaming(false);
+  };
+
+  const handleDeleteSession = (sessionId: string) => {
+    const updated = deleteStoredSession(sessionId);
+    setStoredSessions(updated);
+    if (conversationId === sessionId) {
+      handleResetChat();
+    }
+  };
+
+  const handleClearAllSessions = () => {
+    clearAllStoredSessions();
+    setStoredSessions([]);
+    handleResetChat();
+  };
+
+  const handleDetectWard = async () => {
+    setIsDetectingWard(true);
+    try {
+      const result = await detectClosestWard();
+      if (result) {
+        setSelectedWardId(result.wardId);
+        setWardNotification(`${result.wardName} (${result.distanceKm} km away)`);
+        setTimeout(() => setWardNotification(null), 4500);
+      }
+    } catch (err: any) {
+      alert(`Could not detect location: ${err.message || 'Permission denied'}`);
+    } finally {
+      setIsDetectingWard(false);
+    }
   };
 
   const handleClarificationSelect = (value: any, label: string) => {
@@ -154,7 +242,8 @@ export function App() {
       statusText: 'Consulting 2026 Municipal Gazettes...',
     };
 
-    setMessages((prev) => [...prev, userMessage, assistantMessagePlaceholder]);
+    const updatedMessagesWithUser = [...messages, userMessage, assistantMessagePlaceholder];
+    setMessages(updatedMessagesWithUser);
     setInputQuery('');
     setIsStreaming(true);
 
@@ -162,6 +251,8 @@ export function App() {
     abortControllerRef.current = abortController;
 
     let fullAnswer = '';
+    let latestCitations: CitationItem[] = [];
+    let latestModelUsed = '';
 
     const historyPayload = messages
       .filter((m) => m.content && m.content.trim())
@@ -181,6 +272,7 @@ export function App() {
         },
         onToken: (token: string, model: string) => {
           fullAnswer += token;
+          latestModelUsed = model;
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMessageId
@@ -190,6 +282,7 @@ export function App() {
           );
         },
         onCitations: (citations: CitationItem[]) => {
+          latestCitations = citations;
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMessageId ? { ...msg, citations } : msg
@@ -233,6 +326,32 @@ export function App() {
         },
         onDone: () => {
           setIsStreaming(false);
+
+          // Persist completed conversation into localStorage with strict 20-chat limit
+          const finalMessages: ChatMessage[] = [
+            ...messages,
+            userMessage,
+            {
+              id: assistantMessageId,
+              role: 'assistant',
+              content: fullAnswer,
+              citations: latestCitations,
+              modelUsed: latestModelUsed,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            },
+          ];
+
+          const updated = saveStoredSession({
+            id: conversationId,
+            title: generateSessionTitle(query),
+            wardId: selectedWardId || 4,
+            language,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            messages: finalMessages,
+          });
+          setStoredSessions(updated);
+
           if (isTTSEnabled && fullAnswer) {
             speakResponse(fullAnswer, language);
           }
@@ -248,7 +367,20 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-grid-pattern text-slate-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-slate-300 dark:selection:bg-white/20 transition-colors duration-200">
-      {/* Living Ward & Mode Navigation HUD with Theme Toggle */}
+      {/* Gemini-Style Collapsible Sidebar */}
+      <ConversationSidebar
+        isOpen={isSidebarOpen}
+        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+        sessions={storedSessions}
+        activeSessionId={conversationId}
+        onSelectSession={handleSelectSession}
+        onNewSession={handleResetChat}
+        onDeleteSession={handleDeleteSession}
+        onClearAll={handleClearAllSessions}
+        t={t}
+      />
+
+      {/* Living Ward & Mode Navigation HUD */}
       <WardHUD
         wards={wards}
         selectedWardId={selectedWardId}
@@ -260,7 +392,28 @@ export function App() {
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         theme={theme}
         onToggleTheme={toggleTheme}
+        onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        sessionsCount={storedSessions.length}
+        onDetectWard={handleDetectWard}
+        isDetectingWard={isDetectingWard}
       />
+
+      {/* Geolocation Auto-Detection Notification Banner */}
+      <AnimatePresence>
+        {wardNotification && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-mono flex items-center gap-2 shadow-xl backdrop-blur-md"
+          >
+            <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+            <span>
+              {t.wardDetected}: <strong>{wardNotification}</strong>
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Global Command Palette (⌘K) */}
       <CommandPalette
@@ -310,16 +463,16 @@ export function App() {
                       <div className="flex items-center gap-2">
                         <FileCheck2 className="w-4 h-4 text-slate-700 dark:text-zinc-300" />
                         <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                          Statutory SLA Triage Engine
+                          {t.statutorySlaTriage}
                         </span>
                       </div>
                       <ArrowRight className="w-4 h-4 text-slate-400 dark:text-zinc-500 group-hover:text-slate-900 dark:group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                     </div>
                     <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-slate-700 dark:group-hover:text-zinc-200 transition-colors font-display mb-1.5">
-                      Automated Grievance Classification & Docketing
+                      {t.bentoGrievanceTitle}
                     </h3>
                     <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed max-w-lg mb-4">
-                      Categorizes complaints across 10 municipal departments, computes statutory SLA countdowns (4h emergency to 48h civil), and generates official verifiable dockets.
+                      {t.bentoGrievanceDesc}
                     </p>
                   </div>
 
@@ -360,10 +513,10 @@ export function App() {
                       <ArrowRight className="w-4 h-4 text-slate-400 dark:text-zinc-500 group-hover:text-slate-900 dark:group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                     </div>
                     <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-slate-700 dark:group-hover:text-zinc-200 transition-colors font-display mb-1.5">
-                      Property Tax & 10% Rebate Formula
+                      {t.bentoTaxTitle}
                     </h3>
                     <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed mb-4">
-                      Section 128 calculations, early bird payment deadlines, and verified statutory receipt procedures.
+                      {t.bentoTaxDesc}
                     </p>
                   </div>
                   <div className="text-[11px] font-mono text-slate-600 dark:text-zinc-400 group-hover:text-slate-900 dark:group-hover:text-zinc-200 flex items-center gap-1 transition-colors">
@@ -393,10 +546,10 @@ export function App() {
                       <ArrowRight className="w-4 h-4 text-slate-400 dark:text-zinc-500 group-hover:text-slate-900 dark:group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                     </div>
                     <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-slate-700 dark:group-hover:text-zinc-200 transition-colors font-display mb-1.5">
-                      Life-Safety Emergency Interceptor
+                      {t.bentoSafetyTitle}
                     </h3>
                     <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed mb-4">
-                      Deterministic gates intercept building collapses, gas leaks, and live wire snaps before running vector search.
+                      {t.bentoSafetyDesc}
                     </p>
                   </div>
                   <div className="text-[11px] font-mono text-slate-600 dark:text-zinc-400 group-hover:text-rose-500 flex items-center gap-1 transition-colors">
@@ -426,17 +579,17 @@ export function App() {
                       <ArrowRight className="w-4 h-4 text-slate-400 dark:text-zinc-500 group-hover:text-slate-900 dark:group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                     </div>
                     <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-slate-700 dark:group-hover:text-zinc-200 transition-colors font-display mb-1.5">
-                      Building Plan Approvals (OBPAS) & Section 14(b) Standards
+                      {t.bentoBuildingTitle}
                     </h3>
                     <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed max-w-lg mb-4">
-                      Official statutory setback standards, auto-DCR scrutinies, occupancy certificates, and 30-day clearance SLAs for residential plots.
+                      {t.bentoBuildingDesc}
                     </p>
                   </div>
 
                   <div className="flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400 pt-2 border-t border-black/5 dark:border-white/[0.06] font-mono">
                     <span className="flex items-center gap-1.5">
                       <Compass className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
-                      <span>Verified Against 2026 Building Bylaws</span>
+                      <span>{t.verifiedGazettes}</span>
                     </span>
                     <span className="group-hover:text-slate-900 dark:group-hover:text-white transition-colors flex items-center gap-1">
                       <span>Query Setback Rules</span>
@@ -456,25 +609,25 @@ export function App() {
                   onClick={() => handleSubmit('What is the early bird 10% rebate for Property Tax in Ward 4?')}
                   className="liquid-glass-pill px-3 py-1.5 rounded-full text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
                 >
-                  Property Tax 10% Rebate
+                  {t.pillPropertyTax}
                 </button>
                 <button
                   onClick={() => handleSubmit('Report water pipe burst with contaminated water')}
                   className="liquid-glass-pill px-3 py-1.5 rounded-full text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
                 >
-                  Report Water Burst (4h SLA)
+                  {t.pillWaterBurst}
                 </button>
                 <button
                   onClick={() => handleSubmit('What are the penalties for open garbage dumping under 2026 rules?')}
                   className="liquid-glass-pill px-3 py-1.5 rounded-full text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
                 >
-                  Sanitation Bylaw Fines
+                  {t.pillSanitation}
                 </button>
                 <button
                   onClick={() => handleSubmit('What are the setbacks and approval SLAs for building plan permission?')}
                   className="liquid-glass-pill px-3 py-1.5 rounded-full text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
                 >
-                  Building Plan Permits (OBPAS)
+                  {t.pillBuildingPermits}
                 </button>
               </div>
 
@@ -485,7 +638,7 @@ export function App() {
                 title="Clear current session"
               >
                 <RotateCcw className="w-3 h-3" />
-                <span className="hidden sm:inline">New Session</span>
+                <span className="hidden sm:inline">{t.newSession}</span>
               </button>
             </div>
           )}
@@ -565,7 +718,7 @@ export function App() {
                       <div className="mt-4 pt-3 border-t border-black/5 dark:border-white/[0.06] flex flex-wrap items-center gap-2">
                         <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-zinc-400 mr-1 font-mono tracking-wider flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3 text-slate-600 dark:text-zinc-400" />
-                          Verified Citations:
+                          {t.verifiedCitations}
                         </span>
                         {msg.citations.map((c) => (
                           <CitationChip key={c.index} citation={c} />
@@ -625,7 +778,7 @@ export function App() {
                 {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
               </motion.button>
 
-              {/* Minimalist Soundwave Indicator (No Neon) */}
+              {/* Minimalist Soundwave Indicator */}
               {isListening && (
                 <div className="flex items-center gap-0.5 px-2">
                   <span className="w-0.5 bg-slate-600 dark:bg-zinc-300 rounded-full animate-wave-1" />
@@ -641,11 +794,7 @@ export function App() {
                 type="text"
                 value={inputQuery}
                 onChange={(e) => setInputQuery(e.target.value)}
-                placeholder={
-                  isListening
-                    ? 'Listening to regional citizen speech...'
-                    : 'Ask about property tax, water bills, building permits, or report a civic issue...'
-                }
+                placeholder={isListening ? t.listeningVoice : t.inputPlaceholder}
                 disabled={isStreaming}
                 className="flex-1 bg-transparent px-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none font-medium"
               />
@@ -661,7 +810,7 @@ export function App() {
                     ? 'text-slate-900 dark:text-white bg-black/5 dark:bg-white/[0.1] border border-black/10 dark:border-white/20'
                     : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/[0.06]'
                 }`}
-                title={isTTSEnabled ? 'Audio Response Enabled' : 'Enable Audio Response'}
+                title={isTTSEnabled ? t.audioToggleOn : t.audioToggleOff}
               >
                 {isTTSEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
               </motion.button>
@@ -673,6 +822,7 @@ export function App() {
                 type="submit"
                 disabled={!inputQuery.trim() || isStreaming}
                 className="p-2.5 rounded-xl bg-slate-950 dark:bg-white hover:bg-slate-800 dark:hover:bg-zinc-200 disabled:opacity-30 disabled:hover:bg-slate-950 dark:disabled:hover:bg-white text-white dark:text-zinc-950 font-semibold shadow-sm transition-all cursor-pointer"
+                title={t.sendQuery}
               >
                 <Send className="w-4 h-4" />
               </motion.button>
@@ -682,9 +832,9 @@ export function App() {
             <div className="flex items-center justify-between px-3 pt-2 text-[10px] text-slate-500 dark:text-zinc-500 font-mono">
               <span className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/80" />
-                <span>2026 Municipal Gazettes Verified</span>
+                <span>{t.verifiedGazettes}</span>
               </span>
-              <span className="hidden sm:inline font-mono">Press ⌘K for Instant Services</span>
+              <span className="hidden sm:inline font-mono">Press ⌘K for Instant Services • ⌘O for Chat History</span>
             </div>
           </div>
         </div>

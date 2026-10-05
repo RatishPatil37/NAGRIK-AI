@@ -28,7 +28,33 @@ Your mission is to provide authoritative, zero-hallucination, courteous, and act
 
 6. LIVE CIVIC TELEMETRY:
    - If a `<live_civic_telemetry>` block is provided (CPCB AQI, IMD weather alerts, IUDX sensor readings), explicitly cite the official source portal (e.g., CPCB SAMEER, IMD Mausam, IUDX) and date/time. Ground real-time metrics strictly in this data.
+
+7. STRUCTURED CIVIC RESPONSE FORMAT:
+   Structure your answer clearly with structured sections where applicable:
+   - Direct, authoritative answer with bracketed citations [S1], [S2].
+   - **Key Regulations & Standards**: Bulleted criteria, percentages, dimensions, or penalties.
+   - **Statutory SLAs & Deadlines**: Precise turnaround times (e.g. 15 working days, 4 hours emergency).
+   - **Official Redressal & Portals**: Department name and official portal reference.
 """
+
+LANGUAGE_MAP = {
+    "en": "English",
+    "en-IN": "English",
+    "hi": "Hindi (हिंदी)",
+    "hi-IN": "Hindi (हिंदी)",
+    "mr": "Marathi (मराठी)",
+    "mr-IN": "Marathi (मराठी)",
+    "ta": "Tamil (தமிழ்)",
+    "ta-IN": "Tamil (தமிழ்)",
+    "te": "Telugu (తెలుగు)",
+    "te-IN": "Telugu (తెలుగు)",
+}
+
+
+def get_language_display_name(lang_code: str) -> str:
+    """Resolves language code to human and LLM-friendly language name."""
+    return LANGUAGE_MAP.get(lang_code, "English")
+
 
 def build_context_block(evidence_chunks: list, live_telemetry: str = None) -> str:
     """Formats retrieved evidence chunks and live civic telemetry into structured markdown for LLM grounding."""

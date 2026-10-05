@@ -8,7 +8,7 @@ Tier 4: Offline Deterministic Municipal Fallback
 import asyncio
 from typing import AsyncGenerator, Dict, List, Optional
 from backend.src.config import settings
-from backend.src.generator.prompts import CIVIC_SYSTEM_PROMPT, build_context_block
+from backend.src.generator.prompts import CIVIC_SYSTEM_PROMPT, build_context_block, get_language_display_name
 
 
 class ResilientLLMClient:
@@ -99,35 +99,43 @@ class ResilientLLMClient:
             ]
             history_context = "### Previous Conversation Turns:\n" + "\n".join(turns) + "\n\n"
 
+        target_lang = get_language_display_name(language_code)
         user_prompt = (
             f"{history_context}"
-            f"Citizen Query (Respond in Language: {language_code}):\n{query}\n\n"
+            f"Citizen Query (Respond in Language: {target_lang}):\n{query}\n\n"
             f"{context_str}\n\n"
             f"Provide an authoritative, clear answer citing official sources using [S1], [S2] where applicable."
         )
 
         # ---------------------------------------------------------
-        # TIER 1: Gemini 3.7 Flash
+        # TIER 1: Gemini 3.7 Flash (with 1-retry on 503/429 capacity spike)
         # ---------------------------------------------------------
         gemini_client = self._get_gemini_client()
         if gemini_client:
-            try:
-                print(f"[LLMClient] Tier 1: Invoking {settings.PRIMARY_MODEL}...")
-                response_stream = await asyncio.to_thread(
-                    gemini_client.models.generate_content_stream,
-                    model=settings.PRIMARY_MODEL,
-                    contents=user_prompt,
-                    config={
-                        "system_instruction": CIVIC_SYSTEM_PROMPT,
-                        "temperature": 0.2,
-                    },
-                )
-                for chunk in response_stream:
-                    if chunk.text:
-                        yield {"token": chunk.text, "model": settings.PRIMARY_MODEL, "tier": 1}
-                return
-            except Exception as e:
-                print(f"[LLMClient] Tier 1 ({settings.PRIMARY_MODEL}) failed: {e}. Escalating to Tier 2...")
+            for attempt in range(2):
+                try:
+                    print(f"[LLMClient] Tier 1 (Attempt {attempt+1}): Invoking {settings.PRIMARY_MODEL}...")
+                    response_stream = await asyncio.to_thread(
+                        gemini_client.models.generate_content_stream,
+                        model=settings.PRIMARY_MODEL,
+                        contents=user_prompt,
+                        config={
+                            "system_instruction": CIVIC_SYSTEM_PROMPT,
+                            "temperature": 0.2,
+                        },
+                    )
+                    for chunk in response_stream:
+                        if chunk.text:
+                            yield {"token": chunk.text, "model": settings.PRIMARY_MODEL, "tier": 1}
+                    return
+                except Exception as e:
+                    err_msg = str(e)
+                    if attempt == 0 and ("503" in err_msg or "429" in err_msg or "UNAVAILABLE" in err_msg):
+                        print(f"[LLMClient] Tier 1 ({settings.PRIMARY_MODEL}) busy: {e}. Retrying in 600ms...")
+                        await asyncio.sleep(0.6)
+                        continue
+                    print(f"[LLMClient] Tier 1 ({settings.PRIMARY_MODEL}) failed: {e}. Escalating to Tier 2...")
+                    break
 
             # ---------------------------------------------------------
             # TIER 2: Gemini 3.5 Flash Lite

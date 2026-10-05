@@ -21,6 +21,7 @@ from backend.src.guardrails.scope_gate import check_scope_gate
 from backend.src.multilingual.normalizer import normalize_query_for_retrieval
 from backend.src.retriever.gov_api_router import gov_api_router
 from backend.src.retriever.hybrid_search import hybrid_retriever
+from backend.src.retriever.reranker import civic_reranker
 from backend.src.retriever.pruner import filter_cited_evidence
 from backend.src.telemetry.tracer import tracer
 
@@ -151,12 +152,17 @@ async def stream_chat(
         }
 
         normalized_query = normalize_query_for_retrieval(standalone_query)
-        retrieved_chunks = await asyncio.to_thread(
+        candidate_chunks = await asyncio.to_thread(
             hybrid_retriever.search,
             query_text=normalized_query,
-            limit=5,
+            limit=8,
             user_id=user_id,
             ward_id=ward_id,
+        )
+        retrieved_chunks = civic_reranker.rerank(
+            query=standalone_query,
+            candidates=candidate_chunks,
+            top_k=5,
         )
 
         # =========================================================

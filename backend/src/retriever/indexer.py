@@ -112,5 +112,24 @@ def ingest_knowledge():
     print(f"[Indexer] Ingestion complete! Total points: {len(points)}")
 
 
+def auto_seed_if_empty():
+    """Checks if active collection has points; if empty, automatically ingests seed gazettes."""
+    try:
+        client = hybrid_retriever.get_client()
+        info = client.get_collection(hybrid_retriever.collection_name)
+        if (info.points_count or 0) > 0:
+            print(f"[Indexer] Collection '{hybrid_retriever.collection_name}' already contains {info.points_count} points. Skipping auto-seed.")
+            return
+    except Exception as e:
+        print(f"[Indexer] Collection check error: {e}. Ensuring collection and seeding...")
+
+    print("[Indexer] Collection is empty or uninitialized. Auto-seeding 2026 municipal gazettes...")
+    try:
+        ingest_knowledge()
+    except Exception as err:
+        print(f"[Indexer] Auto-seed non-fatal error: {err}")
+
+
 if __name__ == "__main__":
     ingest_knowledge()
+

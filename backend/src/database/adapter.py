@@ -6,7 +6,7 @@ import asyncio
 import json
 import os
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from backend.src.config import settings
@@ -35,6 +35,21 @@ DEFAULT_DEPARTMENTS = [
     {"dept_code": "ELE", "dept_name": "Electrical & Streetlighting", "standard_sla_hours": 24, "head_officer_email": "chief.electrical@municipal.gov.in"},
 ]
 
+DEFAULT_SEED_GRIEVANCES = [
+    {"ticket_id": "MCGM-2026-W04-7492", "ward_id": 4, "dept_code": "WTR", "category": "Water Supply Contamination & Pipe Burst", "priority": "emergency", "sla_hours": -2, "status": "submitted"},
+    {"ticket_id": "MCGM-2026-W04-8114", "ward_id": 4, "dept_code": "ENG", "category": "Deep Road Pothole near Station", "priority": "high", "sla_hours": 3, "status": "in_progress"},
+    {"ticket_id": "MCGM-2026-W04-9201", "ward_id": 4, "dept_code": "SAN", "category": "Commercial Garbage Dumping on Sidewalk", "priority": "medium", "sla_hours": 8, "status": "submitted"},
+    {"ticket_id": "MCGM-2026-W08-3310", "ward_id": 8, "dept_code": "WTR", "category": "Main Pipeline Burst at Junction", "priority": "emergency", "sla_hours": -1, "status": "submitted"},
+    {"ticket_id": "MCGM-2026-W08-3311", "ward_id": 8, "dept_code": "WTR", "category": "Low Water Pressure in Sector 3", "priority": "medium", "sla_hours": 14, "status": "in_progress"},
+    {"ticket_id": "MCGM-2026-W08-3312", "ward_id": 8, "dept_code": "SAN", "category": "Overflowing Public Dustbins", "priority": "high", "sla_hours": 2, "status": "submitted"},
+    {"ticket_id": "MCGM-2026-W08-3313", "ward_id": 8, "dept_code": "ELE", "category": "Streetlight Phase Short-Circuit", "priority": "high", "sla_hours": 5, "status": "submitted"},
+    {"ticket_id": "MCGM-2026-W08-3314", "ward_id": 8, "dept_code": "ENG", "category": "Stormwater Drain Choked", "priority": "medium", "sla_hours": 20, "status": "in_progress"},
+    {"ticket_id": "MCGM-2026-W01-1042", "ward_id": 1, "dept_code": "REV", "category": "Commercial Property Tax Surcharge Appeal", "priority": "standard", "sla_hours": 96, "status": "submitted"},
+    {"ticket_id": "MCGM-2026-W02-2190", "ward_id": 2, "dept_code": "TNP", "category": "Unauthorized Compound Wall Construction", "priority": "medium", "sla_hours": 48, "status": "submitted"},
+    {"ticket_id": "MCGM-2026-W06-5502", "ward_id": 6, "dept_code": "ELE", "category": "Traffic Light & Feeder Failure", "priority": "high", "sla_hours": 3, "status": "in_progress"},
+    {"ticket_id": "MCGM-2026-W07-6621", "ward_id": 7, "dept_code": "SAN", "category": "Plastic Waste Burning in Open Ground", "priority": "high", "sla_hours": 7, "status": "submitted"},
+]
+
 
 class DatabaseAdapter:
     def __init__(self):
@@ -54,6 +69,30 @@ class DatabaseAdapter:
                 client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_ANON_KEY)
                 # Verify that tables are created in Supabase
                 client.table("municipal_wards").select("ward_id").limit(1).execute()
+                # Check grievances count in Supabase; if empty, auto-seed
+                try:
+                    g_res = client.table("grievances").select("ticket_id").limit(1).execute()
+                    if not g_res.data:
+                        now = datetime.now(timezone.utc)
+                        now_str = now.isoformat()
+                        seed_records = []
+                        for g in DEFAULT_SEED_GRIEVANCES:
+                            deadline = (now + timedelta(hours=g["sla_hours"])).isoformat()
+                            seed_records.append({
+                                "ticket_id": g["ticket_id"],
+                                "ward_id": g["ward_id"],
+                                "dept_code": g["dept_code"],
+                                "category": g["category"],
+                                "priority": g["priority"],
+                                "sla_deadline": deadline,
+                                "status": g["status"],
+                                "created_at": now_str,
+                                "updated_at": now_str,
+                            })
+                        client.table("grievances").insert(seed_records).execute()
+                except Exception as seed_err:
+                    print(f"[DatabaseAdapter] Supabase auto-seed notice: {seed_err}")
+
                 self._supabase_client = client
                 self._initialized = True
                 print("[DatabaseAdapter] Supabase PostgreSQL connected and verified.")
@@ -162,6 +201,22 @@ class DatabaseAdapter:
                 INSERT OR IGNORE INTO municipal_departments (dept_code, dept_name, standard_sla_hours, head_officer_email)
                 VALUES (?, ?, ?, ?)
                 """, (dept["dept_code"], dept["dept_name"], dept["standard_sla_hours"], dept["head_officer_email"]))
+
+            # Seed Default Grievances if empty
+            cursor.execute("SELECT COUNT(*) FROM grievances")
+            if cursor.fetchone()[0] == 0:
+                now = datetime.now(timezone.utc)
+                for g in DEFAULT_SEED_GRIEVANCES:
+                    deadline = (now + timedelta(hours=g["sla_hours"])).isoformat()
+                    now_str = now.isoformat()
+                    cursor.execute("""
+                    INSERT INTO grievances (
+                        ticket_id, ward_id, dept_code, category, priority, sla_deadline, status, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        g["ticket_id"], g["ward_id"], g["dept_code"], g["category"],
+                        g["priority"], deadline, g["status"], now_str, now_str
+                    ))
 
             conn.commit()
 

@@ -32,7 +32,7 @@ class HybridRetriever:
                     _ = candidate.get_collections()
                     self._client = candidate
                     self._is_cloud_active = True
-                    print("[HybridRetriever] ✅ Connected successfully to Qdrant Cloud via port 443.")
+                    print("[HybridRetriever] [OK] Connected successfully to Qdrant Cloud via port 443.")
                 except Exception as err_443:
                     print(f"[HybridRetriever] Port 443 attempt failed ({err_443}). Trying default port 6333...")
                     # 2. Try default Qdrant Port 6333
@@ -41,9 +41,9 @@ class HybridRetriever:
                         _ = candidate.get_collections()
                         self._client = candidate
                         self._is_cloud_active = True
-                        print("[HybridRetriever] ✅ Connected successfully to Qdrant Cloud via port 6333.")
+                        print("[HybridRetriever] [OK] Connected successfully to Qdrant Cloud via port 6333.")
                     except Exception as err_6333:
-                        print(f"[HybridRetriever] ⚠️ Qdrant Cloud failed on both ports 443 & 6333: {err_6333}")
+                        print(f"[HybridRetriever] [WARN] Qdrant Cloud failed on both ports 443 & 6333: {err_6333}")
                         print(f"[HybridRetriever] Falling back to local offline Qdrant storage at {settings.QDRANT_LOCAL_PATH}...")
                         self._client = QdrantClient(path=settings.QDRANT_LOCAL_PATH)
                         self._is_cloud_active = False
