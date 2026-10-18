@@ -35,6 +35,7 @@ interface WardHUDProps {
   user: UserProfile;
   onOpenSettings: () => void;
   onNavigateHome: () => void;
+  onSignOut?: () => void;
   activeView: 'landing' | 'conversation' | 'dashboard' | 'settings';
   onSelectView: (view: 'landing' | 'conversation' | 'dashboard') => void;
 }
@@ -63,6 +64,7 @@ export const WardHUD: React.FC<WardHUDProps> = ({
   user,
   onOpenSettings,
   onNavigateHome,
+  onSignOut,
   activeView,
   onSelectView,
 }) => {
@@ -268,6 +270,7 @@ export const WardHUD: React.FC<WardHUDProps> = ({
           <AccountPopover
             user={user}
             onOpenSettings={onOpenSettings}
+            onSignOut={onSignOut}
           />
         </div>
       </div>

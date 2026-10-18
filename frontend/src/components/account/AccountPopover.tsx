@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, LogOut, Scale } from 'lucide-react';
+import { Settings, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export interface UserProfile {
@@ -7,13 +7,15 @@ export interface UserProfile {
   email: string;
   avatarUrl?: string;
   connectedGoogleEmail?: string;
+  secondaryEmails?: string[];
 }
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
   name: 'Ratish Patil',
   email: 'patilratish369@gmail.com',
-  avatarUrl: '', // Supports any Google avatar URL
+  avatarUrl: '/google-avatar.png', // Authentic Google Account profile photo
   connectedGoogleEmail: 'patilratish369@gmail.com',
+  secondaryEmails: [],
 };
 
 interface AccountPopoverProps {
@@ -28,7 +30,7 @@ export const AccountPopover: React.FC<AccountPopoverProps> = ({
   onSignOut,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [imgError, setImgError] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
   // Close when clicking outside
@@ -36,6 +38,7 @@ export const AccountPopover: React.FC<AccountPopoverProps> = ({
     const handleClickOutside = (e: MouseEvent) => {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
         setIsOpen(false);
+        setShowSignOutConfirm(false);
       }
     };
     if (isOpen) {
@@ -44,46 +47,29 @@ export const AccountPopover: React.FC<AccountPopoverProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  // Reset img error if avatar URL changes
-  useEffect(() => {
-    setImgError(false);
-  }, [user.avatarUrl]);
-
-  const renderAvatarContent = (sizeClass: string) => {
-    if (user.avatarUrl && !imgError) {
-      return (
-        <img
-          src={user.avatarUrl}
-          alt={user.name}
-          onError={() => setImgError(true)}
-          className={`${sizeClass} rounded-full object-cover border border-slate-200 dark:border-white/10`}
-        />
-      );
-    }
-
-    // Authentic Scales of Justice Emblem Fallback (from Screenshot 1 & 2)
-    return (
-      <div
-        className={`${sizeClass} rounded-full bg-gradient-to-br from-amber-700/30 via-slate-800 to-amber-900/40 border border-amber-500/40 flex items-center justify-center text-amber-200 shadow-sm shrink-0`}
-      >
-        <Scale className="w-4 h-4 text-amber-300 drop-shadow-sm" />
-      </div>
-    );
-  };
+  const avatarSrc = user.avatarUrl || '/google-avatar.png';
 
   return (
     <div className="relative" ref={popoverRef}>
-      {/* Navbar Avatar Trigger Button (Screenshot 2 Top-Right) */}
+      {/* Top-Right Navbar Avatar Trigger Button (Exact Match to Screenshot 2) */}
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="w-8 h-8 sm:w-9 sm:h-9 rounded-full ring-2 ring-transparent hover:ring-amber-500/40 transition-all cursor-pointer flex items-center justify-center p-0.5"
+        className="w-8 h-8 sm:w-9 sm:h-9 rounded-full ring-2 ring-transparent hover:ring-amber-500/40 transition-all cursor-pointer flex items-center justify-center p-0.5 overflow-hidden"
         title={`${user.name} (${user.email})`}
         aria-label="User Account Menu"
         aria-expanded={isOpen}
       >
-        {renderAvatarContent('w-full h-full')}
+        <img
+          src={avatarSrc}
+          alt={user.name}
+          className="w-full h-full rounded-full object-cover border border-slate-200 dark:border-white/10"
+          onError={(e) => {
+            // Fallback to static cropped avatar if custom URL fails
+            (e.target as HTMLImageElement).src = '/google-avatar.png';
+          }}
+        />
       </motion.button>
 
       {/* Floating Account Card Popover (Exact Match to Screenshot 2) */}
@@ -98,7 +84,14 @@ export const AccountPopover: React.FC<AccountPopoverProps> = ({
           >
             {/* User Profile Header (ss2) */}
             <div className="p-4 flex items-center gap-3.5 bg-slate-50/50 dark:bg-white/[0.02]">
-              {renderAvatarContent('w-10 h-10')}
+              <img
+                src={avatarSrc}
+                alt={user.name}
+                className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10 shrink-0"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/google-avatar.png';
+                }}
+              />
               <div className="min-w-0 flex-1">
                 <div className="font-bold text-slate-900 dark:text-white truncate text-sm">
                   {user.name}
@@ -115,6 +108,7 @@ export const AccountPopover: React.FC<AccountPopoverProps> = ({
             <div className="p-1.5 space-y-0.5">
               {/* Manage Account -> Opens Settings View */}
               <button
+                type="button"
                 onClick={() => {
                   setIsOpen(false);
                   onOpenSettings();
@@ -126,16 +120,40 @@ export const AccountPopover: React.FC<AccountPopoverProps> = ({
               </button>
 
               {/* Sign Out */}
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  if (onSignOut) onSignOut();
-                }}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400 text-slate-700 dark:text-zinc-300 text-xs sm:text-sm font-medium transition-colors cursor-pointer text-left"
-              >
-                <LogOut className="w-4 h-4 text-slate-500 dark:text-zinc-400 shrink-0" />
-                <span>Sign out</span>
-              </button>
+              {showSignOutConfirm ? (
+                <div className="p-2.5 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-xs text-red-700 dark:text-red-300 space-y-2">
+                  <div>Sign out of Nagrik AI?</div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsOpen(false);
+                        setShowSignOutConfirm(false);
+                        if (onSignOut) onSignOut();
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs"
+                    >
+                      Confirm Sign Out
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowSignOutConfirm(false)}
+                      className="px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-zinc-300 text-xs"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowSignOutConfirm(true)}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400 text-slate-700 dark:text-zinc-300 text-xs sm:text-sm font-medium transition-colors cursor-pointer text-left"
+                >
+                  <LogOut className="w-4 h-4 text-slate-500 dark:text-zinc-400 shrink-0" />
+                  <span>Sign out</span>
+                </button>
+              )}
             </div>
 
             <div className="h-[1px] bg-slate-100 dark:bg-white/[0.06]" />

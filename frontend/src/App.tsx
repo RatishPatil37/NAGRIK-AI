@@ -56,12 +56,16 @@ export function App() {
   const [isDetectingWard, setIsDetectingWard] = useState<boolean>(false);
   const [wardNotification, setWardNotification] = useState<string | null>(null);
 
-  // Dynamic User Profile (Takes any Google avatar URL or fallback)
+  // Dynamic User Profile (Authentic Google profile photo)
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('nagrik_user_profile');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (!parsed.avatarUrl || parsed.avatarUrl === '') {
+          parsed.avatarUrl = '/google-avatar.png';
+        }
+        return parsed;
       } catch (e) {
         console.error('Failed to parse user profile', e);
       }
@@ -75,6 +79,11 @@ export function App() {
       localStorage.setItem('nagrik_user_profile', JSON.stringify(next));
       return next;
     });
+  };
+
+  const handleSignOut = () => {
+    handleResetChat();
+    setActiveView('landing');
   };
 
   // Localization Dictionary
@@ -433,6 +442,7 @@ export function App() {
         user={userProfile}
         onOpenSettings={() => setActiveView('settings')}
         onNavigateHome={() => setActiveView('landing')}
+        onSignOut={handleSignOut}
         activeView={activeView}
         onSelectView={(view) => setActiveView(view)}
       />

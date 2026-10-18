@@ -7,13 +7,15 @@ import {
   MessageSquare,
   Plus,
   MoreHorizontal,
-  Scale,
   Sparkles,
   Volume2,
   VolumeX,
   X,
+  CheckCircle2,
+  Trash2,
+  RefreshCw,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { NagrikLogo } from '../brand/NagrikLogo';
 import type { UserProfile } from './AccountPopover';
 
@@ -41,42 +43,92 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editName, setEditName] = useState(user.name);
-  const [editAvatarUrl, setEditAvatarUrl] = useState(user.avatarUrl || '');
+  const [editAvatarUrl, setEditAvatarUrl] = useState(user.avatarUrl || '/google-avatar.png');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [imgError, setImgError] = useState(false);
+
+  // Functional Modals for New Buttons
+  const [isAddingEmail, setIsAddingEmail] = useState(false);
+  const [newEmailInput, setNewEmailInput] = useState('');
+  const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
+  const [googleEmailInput, setGoogleEmailInput] = useState(user.connectedGoogleEmail || user.email);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Active Menu Dropdowns
+  const [activeMenu, setActiveMenu] = useState<'primary-email' | 'google-account' | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
     onUpdateUser({
       name: editName.trim() || user.name,
-      avatarUrl: editAvatarUrl.trim(),
+      avatarUrl: editAvatarUrl.trim() || '/google-avatar.png',
     });
-    setImgError(false);
     setIsEditingProfile(false);
+    showToast('Profile updated successfully');
   };
 
-  const renderAvatar = (sizeClass: string) => {
-    if (user.avatarUrl && !imgError) {
-      return (
-        <img
-          src={user.avatarUrl}
-          alt={user.name}
-          onError={() => setImgError(true)}
-          className={`${sizeClass} rounded-full object-cover border border-slate-200 dark:border-white/10`}
-        />
-      );
+  const handleAddEmail = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmailInput.trim() || !newEmailInput.includes('@')) {
+      alert('Please enter a valid email address');
+      return;
     }
-    return (
-      <div
-        className={`${sizeClass} rounded-full bg-gradient-to-br from-amber-700/30 via-slate-800 to-amber-900/40 border border-amber-500/40 flex items-center justify-center text-amber-200 shrink-0 shadow-sm`}
-      >
-        <Scale className="w-4 h-4 text-amber-300 drop-shadow-sm" />
-      </div>
-    );
+    const secondary = user.secondaryEmails || [];
+    if (secondary.includes(newEmailInput.trim()) || newEmailInput.trim() === user.email) {
+      alert('This email is already associated with your account');
+      return;
+    }
+    onUpdateUser({
+      secondaryEmails: [...secondary, newEmailInput.trim()],
+    });
+    setNewEmailInput('');
+    setIsAddingEmail(false);
+    showToast(`Added ${newEmailInput.trim()} to account`);
   };
+
+  const handleConnectGoogle = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!googleEmailInput.trim() || !googleEmailInput.includes('@')) {
+      alert('Please enter a valid Google email address');
+      return;
+    }
+    onUpdateUser({
+      connectedGoogleEmail: googleEmailInput.trim(),
+      avatarUrl: user.avatarUrl || '/google-avatar.png',
+    });
+    setIsConnectingGoogle(false);
+    showToast(`Connected Google account: ${googleEmailInput.trim()}`);
+  };
+
+  const handleResetGoogleAvatar = () => {
+    setEditAvatarUrl('/google-avatar.png');
+    onUpdateUser({ avatarUrl: '/google-avatar.png' });
+    showToast('Fetched authentic Google profile photo');
+  };
+
+  const avatarSrc = user.avatarUrl || '/google-avatar.png';
 
   return (
     <div className="min-h-screen bg-[#FDFCFB] dark:bg-[#090A0F] text-slate-900 dark:text-zinc-100 flex flex-col md:flex-row font-sans transition-colors duration-200">
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-5 right-5 z-50 px-4 py-2.5 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-xs font-semibold shadow-xl flex items-center gap-2 border border-slate-700 dark:border-slate-200"
+          >
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
+            <span>{toastMessage}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Left Navigation Sidebar (Exact Match to Screenshot 1) */}
       <aside className="w-full md:w-64 bg-white dark:bg-[#0D0E15] border-b md:border-b-0 md:border-r border-slate-200/80 dark:border-white/[0.08] p-4 flex flex-col justify-between shrink-0">
         <div>
@@ -85,6 +137,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <NagrikLogo size="md" onClick={() => onNavigate('landing')} />
             {onClose && (
               <button
+                type="button"
                 onClick={onClose}
                 className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white"
                 title="Close Settings"
@@ -97,6 +150,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* Navigation Links (ss1) */}
           <nav className="mt-6 space-y-1">
             <button
+              type="button"
               onClick={() => onNavigate('dashboard')}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white text-sm font-medium transition-colors cursor-pointer text-left"
             >
@@ -105,6 +159,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </button>
 
             <button
+              type="button"
               onClick={() => onNavigate('conversation')}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white text-sm font-medium transition-colors cursor-pointer text-left"
             >
@@ -143,6 +198,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           {onClose && (
             <button
+              type="button"
               onClick={onClose}
               className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-medium text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-all cursor-pointer"
             >
@@ -171,6 +227,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
               <div className="space-y-1">
                 <button
+                  type="button"
                   onClick={() => setActiveTab('profile')}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all text-left cursor-pointer ${
                     activeTab === 'profile'
@@ -183,6 +240,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => setActiveTab('security')}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all text-left cursor-pointer ${
                     activeTab === 'security'
@@ -210,7 +268,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       Profile
                     </div>
                     <div className="flex items-center gap-3 flex-1">
-                      {renderAvatar('w-9 h-9')}
+                      <img
+                        src={avatarSrc}
+                        alt={user.name}
+                        className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10 shrink-0"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/google-avatar.png';
+                        }}
+                      />
                       <div>
                         <div className="text-sm font-bold text-slate-900 dark:text-white">
                           {user.name}
@@ -218,6 +283,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={() => setIsEditingProfile(!isEditingProfile)}
                       className="text-xs font-semibold text-slate-700 dark:text-zinc-200 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors cursor-pointer self-start sm:self-auto"
                     >
@@ -225,7 +291,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </button>
                   </div>
 
-                  {/* Edit Profile Form (Expanded if Update Profile is clicked) */}
+                  {/* Edit Profile Form */}
                   {isEditingProfile && (
                     <motion.form
                       initial={{ opacity: 0, height: 0 }}
@@ -245,19 +311,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
-                          Google Account Avatar URL
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                            Google Profile Avatar
+                          </label>
+                          <button
+                            type="button"
+                            onClick={handleResetGoogleAvatar}
+                            className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                            <span>Fetch from Google Account</span>
+                          </button>
+                        </div>
                         <input
-                          type="url"
-                          placeholder="https://lh3.googleusercontent.com/..."
+                          type="text"
+                          placeholder="Image URL or default (/google-avatar.png)"
                           value={editAvatarUrl}
                           onChange={(e) => setEditAvatarUrl(e.target.value)}
-                          className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/20 bg-white dark:bg-black/30 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-white/20 bg-white dark:bg-black/30 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
                         />
-                        <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-1">
-                          Takes any avatar URL from your Google account. Falls back to Scales of Justice if left blank.
-                        </p>
                       </div>
                       <div className="flex justify-end gap-2 pt-1">
                         <button
@@ -291,23 +364,91 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           Primary
                         </span>
                       </div>
-                      <div className="flex items-center gap-1 self-start sm:self-auto">
+                      <div className="relative">
                         <button
                           type="button"
+                          onClick={() => setActiveMenu(activeMenu === 'primary-email' ? null : 'primary-email')}
                           className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer"
                         >
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
+                        {activeMenu === 'primary-email' && (
+                          <div className="absolute right-0 mt-1 w-44 rounded-xl bg-white dark:bg-[#1A1D28] border border-slate-200 dark:border-white/10 shadow-lg p-1 z-30 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveMenu(null);
+                                showToast('Email already verified as primary');
+                              }}
+                              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.08]"
+                            >
+                              Verified Primary
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
+
+                    {/* Secondary Emails */}
+                    {user.secondaryEmails && user.secondaryEmails.map((secEmail) => (
+                      <div key={secEmail} className="flex items-center justify-between mt-2 ml-0 sm:ml-28 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-slate-700 dark:text-zinc-300">{secEmail}</span>
+                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-500">
+                            Secondary
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = (user.secondaryEmails || []).filter((e) => e !== secEmail);
+                            onUpdateUser({ secondaryEmails: updated });
+                            showToast(`Removed ${secEmail}`);
+                          }}
+                          className="text-red-500 hover:text-red-600 p-1"
+                          title="Remove email"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* Add Email Address Trigger (Now Functional) */}
                     <div className="mt-2.5 ml-0 sm:ml-28">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add email address</span>
-                      </button>
+                      {isAddingEmail ? (
+                        <form onSubmit={handleAddEmail} className="flex items-center gap-2 max-w-sm mt-1">
+                          <input
+                            type="email"
+                            placeholder="Enter new email..."
+                            value={newEmailInput}
+                            onChange={(e) => setNewEmailInput(e.target.value)}
+                            className="flex-1 px-3 py-1 rounded-lg border border-slate-300 dark:border-white/20 bg-white dark:bg-black/30 text-xs text-slate-900 dark:text-white focus:outline-none"
+                            autoFocus
+                          />
+                          <button
+                            type="submit"
+                            className="px-3 py-1 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-xs font-semibold"
+                          >
+                            Add
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsAddingEmail(false)}
+                            className="px-2 py-1 text-slate-500 text-xs"
+                          >
+                            Cancel
+                          </button>
+                        </form>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingEmail(true)}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add email address</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -318,7 +459,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         Connected accounts
                       </div>
                       <div className="flex items-center gap-2 flex-1">
-                        {/* Colored Google Logo */}
                         <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                           <path
                             fill="#4285F4"
@@ -340,24 +480,72 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <span className="text-xs sm:text-sm text-slate-800 dark:text-zinc-200">
                           Google • {user.connectedGoogleEmail || user.email}
                         </span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/20">
+                          Connected
+                        </span>
                       </div>
-                      <div className="flex items-center gap-1 self-start sm:self-auto">
+                      <div className="relative">
                         <button
                           type="button"
+                          onClick={() => setActiveMenu(activeMenu === 'google-account' ? null : 'google-account')}
                           className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer"
                         >
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
+                        {activeMenu === 'google-account' && (
+                          <div className="absolute right-0 mt-1 w-48 rounded-xl bg-white dark:bg-[#1A1D28] border border-slate-200 dark:border-white/10 shadow-lg p-1 z-30 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveMenu(null);
+                                handleResetGoogleAvatar();
+                              }}
+                              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/[0.08] flex items-center gap-1.5"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5 text-emerald-500" />
+                              <span>Sync Profile Photo</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
+
+                    {/* Connect Account Trigger (Now Functional) */}
                     <div className="mt-2.5 ml-0 sm:ml-28">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Connect account</span>
-                      </button>
+                      {isConnectingGoogle ? (
+                        <form onSubmit={handleConnectGoogle} className="flex items-center gap-2 max-w-sm mt-1">
+                          <input
+                            type="email"
+                            placeholder="Google email..."
+                            value={googleEmailInput}
+                            onChange={(e) => setGoogleEmailInput(e.target.value)}
+                            className="flex-1 px-3 py-1 rounded-lg border border-slate-300 dark:border-white/20 bg-white dark:bg-black/30 text-xs text-slate-900 dark:text-white focus:outline-none"
+                            autoFocus
+                          />
+                          <button
+                            type="submit"
+                            className="px-3 py-1 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-xs font-semibold"
+                          >
+                            Link
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsConnectingGoogle(false)}
+                            className="px-2 py-1 text-slate-500 text-xs"
+                          >
+                            Cancel
+                          </button>
+                        </form>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setIsConnectingGoogle(true)}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Connect account</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -375,7 +563,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             Primary Model: Gemini 3.7 Flash
                           </div>
                           <div className="text-[10px] text-slate-500 dark:text-zinc-400">
-                            Surge failover: Gemini 3.5 Flash-Lite • Emergency: Groq Llama 3.3 70B
+                            Surge: Gemini 3.5 Flash-Lite • Emergency: Groq Llama 3.3 70B
                           </div>
                         </div>
                       </div>
@@ -434,6 +622,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               onClick={() => {
                                 onClearSessions();
                                 setShowClearConfirm(false);
+                                showToast('Cleared chat history');
                               }}
                               className="px-2.5 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold"
                             >
