@@ -11,10 +11,10 @@ export interface UserProfile {
 }
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
-  name: 'Ratish Patil',
-  email: 'patilratish369@gmail.com',
-  avatarUrl: '/google-avatar.png', // Authentic Google Account profile photo
-  connectedGoogleEmail: 'patilratish369@gmail.com',
+  name: '',
+  email: '',
+  avatarUrl: '',
+  connectedGoogleEmail: '',
   secondaryEmails: [],
 };
 

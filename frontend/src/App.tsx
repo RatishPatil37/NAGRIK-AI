@@ -62,8 +62,20 @@ export function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (!parsed.avatarUrl || parsed.avatarUrl === '') {
-          parsed.avatarUrl = '/google-avatar.png';
+        // Migration guard: wipe old hardcoded profile that leaked across users
+        const isStaleDefault =
+          parsed.email === 'patilratish369@gmail.com' &&
+          typeof window !== 'undefined' &&
+          !window.location.hostname.includes('localhost');
+        if (isStaleDefault) {
+          // Don't delete — keep the profile if the person is Ratish logged in on prod.
+          // But if they've never explicitly set it, treat as anonymous.
+          // We distinguish by checking a flag set only during explicit onboarding.
+          const wasExplicitlySet = localStorage.getItem('nagrik_profile_set') === '1';
+          if (!wasExplicitlySet) {
+            localStorage.removeItem('nagrik_user_profile');
+            return DEFAULT_USER_PROFILE;
+          }
         }
         return parsed;
       } catch (e) {
@@ -77,11 +89,17 @@ export function App() {
     setUserProfile((prev) => {
       const next = { ...prev, ...updated };
       localStorage.setItem('nagrik_user_profile', JSON.stringify(next));
+      // Mark that this profile was explicitly set by a real user (not a stale default)
+      localStorage.setItem('nagrik_profile_set', '1');
       return next;
     });
   };
 
   const handleSignOut = () => {
+    // Clear user-specific profile on sign out
+    localStorage.removeItem('nagrik_user_profile');
+    localStorage.removeItem('nagrik_profile_set');
+    setUserProfile(DEFAULT_USER_PROFILE);
     handleResetChat();
     setActiveView('landing');
   };
@@ -186,11 +204,11 @@ export function App() {
     });
   }, []);
 
-  // Voice Recognition Handler with auto-submit on completion (Google Assistant style)
-  const { isListening, startListening } = useVoiceRecognition(
+  // ChatGPT-style Voice Recognition: live interim text → input field, no auto-submit
+  const { isListening, startListening, stopListening } = useVoiceRecognition(
     (transcript: string) => {
+      // Live-stream the interim + final text into the input box as user speaks
       setInputQuery(transcript);
-      handleSubmit(transcript);
     },
     language,
     (errorMsg: string) => {
@@ -726,23 +744,43 @@ export function App() {
                 onClick={startListening}
                 className={`p-2 rounded-xl transition-colors cursor-pointer ${
                   isListening
-                    ? 'bg-red-500/20 text-red-500 dark:text-red-400 animate-pulse border border-red-500/30'
+                    ? 'bg-red-500/15 text-red-500 border border-red-500/30'
                     : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06]'
                 }`}
-                title={isListening ? t.listeningVoice : 'Voice Input'}
+                title={isListening ? 'Listening…' : 'Voice Input'}
               >
-                {isListening ? <MicOff className="w-4 h-4 text-red-500" /> : <Mic className="w-4 h-4" />}
+                <Mic className="w-4 h-4" />
               </motion.button>
 
-              {/* Text Input */}
-              <input
-                type="text"
-                value={inputQuery}
-                onChange={(e) => setInputQuery(e.target.value)}
-                placeholder={isListening ? t.listeningVoice : t.inputPlaceholder}
-                disabled={isStreaming}
-                className="flex-1 bg-transparent px-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none font-medium"
-              />
+              {/* Text Input + Voice Waveform Animation */}
+              <div className="flex-1 relative flex items-center">
+                <input
+                  type="text"
+                  value={inputQuery}
+                  onChange={(e) => setInputQuery(e.target.value)}
+                  placeholder={isListening ? '' : t.inputPlaceholder}
+                  disabled={isStreaming}
+                  className="w-full bg-transparent px-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none font-medium"
+                />
+                {/* ChatGPT-style waveform animation while listening */}
+                {isListening && !inputQuery && (
+                  <div className="absolute left-3 flex items-center gap-[3px] pointer-events-none">
+                    {[0.4, 0.7, 1.0, 0.7, 0.4, 0.6, 0.9, 0.6].map((h, i) => (
+                      <span
+                        key={i}
+                        className="block w-[3px] rounded-full bg-red-500/80 dark:bg-red-400/80 origin-center"
+                        style={{
+                          height: `${Math.round(h * 16)}px`,
+                          animation: `voiceWave 0.9s ease-in-out ${i * 0.1}s infinite alternate`,
+                        }}
+                      />
+                    ))}
+                    <span className="ml-2 text-xs text-red-500 dark:text-red-400 font-medium animate-pulse">
+                      {t.listeningVoice || 'Listening…'}
+                    </span>
+                  </div>
+                )}
+              </div>
 
               {/* TTS Speech Synthesis Audio & Mute Toggle */}
               <motion.button
@@ -783,17 +821,31 @@ export function App() {
                 )}
               </motion.button>
 
-              {/* Send Button */}
-              <motion.button
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.96 }}
-                type="submit"
-                disabled={!inputQuery.trim() || isStreaming}
-                className="p-2.5 rounded-xl bg-slate-950 dark:bg-white hover:bg-slate-800 dark:hover:bg-zinc-200 disabled:opacity-30 disabled:hover:bg-slate-950 dark:disabled:hover:bg-white text-white dark:text-slate-950 font-semibold shadow-sm transition-all cursor-pointer"
-                title={t.sendQuery}
-              >
-                <Send className="w-4 h-4" />
-              </motion.button>
+              {/* Send Button — or Square Stop Button while recording */}
+              {isListening ? (
+                <motion.button
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                  type="button"
+                  onClick={stopListening}
+                  className="p-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold shadow-sm transition-all cursor-pointer"
+                  title="Stop recording and commit text"
+                >
+                  {/* Square stop icon — exactly like ChatGPT */}
+                  <span className="block w-4 h-4 rounded-sm bg-white" />
+                </motion.button>
+              ) : (
+                <motion.button
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                  type="submit"
+                  disabled={!inputQuery.trim() || isStreaming}
+                  className="p-2.5 rounded-xl bg-slate-950 dark:bg-white hover:bg-slate-800 dark:hover:bg-zinc-200 disabled:opacity-30 disabled:hover:bg-slate-950 dark:disabled:hover:bg-white text-white dark:text-slate-950 font-semibold shadow-sm transition-all cursor-pointer"
+                  title={t.sendQuery}
+                >
+                  <Send className="w-4 h-4" />
+                </motion.button>
+              )}
             </form>
 
             {/* Bottom Status Ticker */}

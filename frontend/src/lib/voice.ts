@@ -90,43 +90,63 @@ export function resumeSpeaking() {
 }
 
 /**
- * Robust Speech-to-Text (STT) Hook.
- * Handles microphone permissions, interim transcription, language selection,
- * and user-friendly error reporting.
+ * ChatGPT-style Speech-to-Text (STT) Hook.
+ *
+ * Behaviour:
+ *  - Continuous listening with live interim text streamed into the input field.
+ *  - Browser cutoffs are auto-restarted so recognition keeps going until the
+ *    user explicitly presses the square stop button.
+ *  - Pressing stop commits whatever has been spoken into the input without
+ *    auto-submitting — the user reviews and clicks Send themselves.
  */
 export function useVoiceRecognition(
-  onResult: (text: string) => void,
+  onInterimResult: (text: string) => void,
   lang: string = 'en-IN',
   onErrorToast?: (msg: string) => void
 ) {
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
+  const shouldRestartRef = useRef<boolean>(false);
+  const finalTranscriptRef = useRef<string>('');
 
   // Clean up on unmount
   useEffect(() => {
     return () => {
+      shouldRestartRef.current = false;
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
         } catch (e) {}
+        recognitionRef.current = null;
       }
     };
   }, []);
 
+  /**
+   * Stop recording and commit whatever has been spoken into the input box.
+   * The user can then review the text and click Send themselves.
+   */
   const stopListening = useCallback(() => {
+    shouldRestartRef.current = false;
     if (recognitionRef.current) {
       try {
-        recognitionRef.current.abort();
-      } catch (e) {}
+        recognitionRef.current.stop(); // graceful stop so final result fires
+      } catch (e) {
+        try {
+          recognitionRef.current.abort();
+        } catch (_) {}
+      }
       recognitionRef.current = null;
     }
     setIsListening(false);
+    // The accumulated text is already shown in the input via onInterimResult
+    finalTranscriptRef.current = '';
   }, []);
 
   const startListening = useCallback(() => {
-    // If currently listening, toggle off cleanly
-    if (recognitionRef.current) {
+    // Toggle off if already listening
+    if (recognitionRef.current || isListening) {
       stopListening();
       return;
     }
@@ -135,68 +155,95 @@ export function useVoiceRecognition(
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      const msg = 'Speech recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge.';
+      const msg =
+        'Speech recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge.';
       setError(msg);
       if (onErrorToast) onErrorToast(msg);
       return;
     }
 
-    try {
-      const recognition = new SpeechRecognition();
-      recognitionRef.current = recognition;
+    finalTranscriptRef.current = '';
 
-      // Google Assistant auto-endpointing:
-      // continuous = false tells the browser to listen to one utterance,
-      // detect when the user finishes speaking, and fire onresult.
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-      recognition.lang = lang;
+    const createAndStart = () => {
+      try {
+        const recognition = new SpeechRecognition();
+        recognitionRef.current = recognition;
 
-      recognition.onstart = () => {
-        setIsListening(true);
-        setError(null);
-      };
+        // ChatGPT-style: continuous listening, show interim text live
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+        recognition.lang = lang;
 
-      recognition.onresult = (event: any) => {
-        if (!event.results || !event.results[0] || !event.results[0][0]) return;
-        const transcript = event.results[0][0].transcript;
-        if (transcript && transcript.trim()) {
-          onResult(transcript.trim());
-        }
-        setIsListening(false);
-      };
+        recognition.onstart = () => {
+          setIsListening(true);
+          setError(null);
+        };
 
-      recognition.onerror = (err: any) => {
-        console.warn('[WebSpeech] Recognition error:', err);
+        recognition.onresult = (event: any) => {
+          let interim = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              finalTranscriptRef.current += event.results[i][0].transcript + ' ';
+            } else {
+              interim += event.results[i][0].transcript;
+            }
+          }
+          // Show combined final + interim live in the input field
+          const combined = (finalTranscriptRef.current + interim).trim();
+          onInterimResult(combined);
+        };
+
+        recognition.onerror = (err: any) => {
+          console.warn('[WebSpeech] Recognition error:', err);
+          if (err.error === 'not-allowed' || err.error === 'service-not-allowed') {
+            shouldRestartRef.current = false;
+            setIsListening(false);
+            recognitionRef.current = null;
+            const userMsg =
+              'Microphone access denied. Please click the permissions icon in your address bar to allow microphone access.';
+            setError(userMsg);
+            if (onErrorToast) onErrorToast(userMsg);
+          } else if (err.error === 'aborted') {
+            // Intentional stop — do nothing
+          }
+          // no-speech, network, etc. → let onend handle restart
+        };
+
+        recognition.onend = () => {
+          // Chrome often fires onend every ~60s in continuous mode.
+          // Auto-restart to keep listening until user stops explicitly.
+          if (shouldRestartRef.current) {
+            try {
+              // Need a new instance; re-using the same one fails in Chrome
+              recognitionRef.current = null;
+              createAndStart();
+            } catch (e) {
+              shouldRestartRef.current = false;
+              setIsListening(false);
+              recognitionRef.current = null;
+            }
+          } else {
+            setIsListening(false);
+            recognitionRef.current = null;
+          }
+        };
+
+        shouldRestartRef.current = true;
+        recognition.start();
+      } catch (e: any) {
+        console.error('[WebSpeech] Failed to start recognition:', e);
+        shouldRestartRef.current = false;
         setIsListening(false);
         recognitionRef.current = null;
+        const msg = e.message || 'Could not start voice recognition';
+        setError(msg);
+        if (onErrorToast) onErrorToast(msg);
+      }
+    };
 
-        if (err.error === 'not-allowed' || err.error === 'service-not-allowed') {
-          const userMsg = 'Microphone access denied. Please click the permissions icon in your address bar to allow microphone access.';
-          setError(userMsg);
-          if (onErrorToast) onErrorToast(userMsg);
-        } else if (err.error !== 'no-speech' && err.error !== 'aborted') {
-          setError(`Voice input error: ${err.error}`);
-          if (onErrorToast) onErrorToast(`Voice input error: ${err.error}`);
-        }
-      };
-
-      recognition.onend = () => {
-        setIsListening(false);
-        recognitionRef.current = null;
-      };
-
-      recognition.start();
-    } catch (e: any) {
-      console.error('[WebSpeech] Failed to start recognition:', e);
-      setIsListening(false);
-      recognitionRef.current = null;
-      const msg = e.message || 'Could not start voice recognition';
-      setError(msg);
-      if (onErrorToast) onErrorToast(msg);
-    }
-  }, [lang, onResult, onErrorToast, stopListening]);
+    createAndStart();
+  }, [lang, onInterimResult, onErrorToast, stopListening, isListening]);
 
   return { isListening, error, startListening, stopListening };
 }

@@ -243,3 +243,15 @@
     page-break-before: always;
   }
 }
+
+/* Voice Waveform Animation (ChatGPT-style bars in the input box) */
+@keyframes voiceWave {
+  0% {
+    transform: scaleY(0.3);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scaleY(1.0);
+    opacity: 1;
+  }
+}
