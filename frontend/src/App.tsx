@@ -18,7 +18,6 @@ import {
   Hash,
   Compass,
   MapPin,
-  Square,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { WardHUD } from './components/civic/WardHUD';
@@ -42,7 +41,7 @@ import {
 import { getTranslation } from './lib/i18n';
 import { detectClosestWard } from './lib/geo';
 import { fetchWards, streamChatQuery } from './lib/api';
-import { useVoiceRecognition, speakResponse, stopSpeaking, subscribeSpeaking } from './lib/voice';
+import { useVoiceRecognition, speakResponse } from './lib/voice';
 import { renderSecureCivicText } from './lib/sanitize';
 import type {
   ChatMessage,
@@ -116,26 +115,11 @@ export function App() {
 
   const [inputQuery, setInputQuery] = useState<string>('');
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
-  const [isTTSEnabled, setIsTTSEnabled] = useState<boolean>(() => {
-    return localStorage.getItem('nagrik_tts_autoplay') === 'true';
-  });
-  const [isSpeakingAudio, setIsSpeakingAudio] = useState<boolean>(false);
-  const [activeSpeakingMessageId, setActiveSpeakingMessageId] = useState<string | null>(null);
-  const [isServerWakingUp, setIsServerWakingUp] = useState<boolean>(false);
+  const [isTTSEnabled, setIsTTSEnabled] = useState<boolean>(false);
   const [activeReceiptTicket, setActiveReceiptTicket] = useState<EscalationTicket | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  // Subscribe to speech synthesis state
-  useEffect(() => {
-    return subscribeSpeaking((speaking) => {
-      setIsSpeakingAudio(speaking);
-      if (!speaking) {
-        setActiveSpeakingMessageId(null);
-      }
-    });
-  }, []);
 
   // Keyboard shortcut listener (Cmd+O / Ctrl+O for Sidebar)
   useEffect(() => {
@@ -270,10 +254,6 @@ export function App() {
     let latestCitations: CitationItem[] = [];
     let latestModelUsed = '';
 
-    const wakeUpTimer = setTimeout(() => {
-      setIsServerWakingUp(true);
-    }, 2800);
-
     const historyPayload = messages
       .filter((m) => m.content && m.content.trim())
       .map((m) => ({ role: m.role, content: m.content }));
@@ -291,8 +271,6 @@ export function App() {
           );
         },
         onToken: (token: string, model: string) => {
-          clearTimeout(wakeUpTimer);
-          setIsServerWakingUp(false);
           fullAnswer += token;
           latestModelUsed = model;
           setMessages((prev) =>
@@ -312,8 +290,6 @@ export function App() {
           );
         },
         onSOS: (sos: EmergencyPayload) => {
-          clearTimeout(wakeUpTimer);
-          setIsServerWakingUp(false);
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMessageId ? { ...msg, emergency: sos } : msg
@@ -321,8 +297,6 @@ export function App() {
           );
         },
         onClarification: (clarification: ClarificationPayload) => {
-          clearTimeout(wakeUpTimer);
-          setIsServerWakingUp(false);
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMessageId ? { ...msg, clarification } : msg
@@ -337,8 +311,6 @@ export function App() {
           );
         },
         onError: (errMsg: any) => {
-          clearTimeout(wakeUpTimer);
-          setIsServerWakingUp(false);
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMessageId
@@ -353,8 +325,6 @@ export function App() {
           setIsStreaming(false);
         },
         onDone: () => {
-          clearTimeout(wakeUpTimer);
-          setIsServerWakingUp(false);
           setIsStreaming(false);
 
           // Persist completed conversation into localStorage with strict 20-chat limit
@@ -383,7 +353,6 @@ export function App() {
           setStoredSessions(updated);
 
           if (isTTSEnabled && fullAnswer) {
-            setActiveSpeakingMessageId(assistantMessageId);
             speakResponse(fullAnswer, language);
           }
         },
@@ -696,29 +665,29 @@ export function App() {
 
                   {/* Message Bubble Container */}
                   <div
-                    className={`max-w-[90%] sm:max-w-[82%] rounded-2xl p-4 sm:p-5 shadow-xl transition-all ${
+                    className={`max-w-[90%] sm:max-w-[82%] rounded-2xl p-4 sm:p-5 shadow-xl ${
                       msg.role === 'user'
-                        ? 'bg-slate-100 dark:bg-[#151A26] text-slate-900 dark:text-white rounded-tr-sm border border-slate-300/80 dark:border-white/[0.12] shadow-sm'
-                        : 'bg-white dark:bg-[#0E121B] border border-slate-200 dark:border-white/[0.1] text-slate-900 dark:text-white rounded-tl-sm shadow-xl'
+                        ? 'bg-slate-200 dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 rounded-tr-xs border border-slate-300/80 dark:border-white/10 shadow-md'
+                        : 'liquid-glass border border-slate-200/80 dark:border-white/[0.08] text-slate-900 dark:text-zinc-100 rounded-tl-xs shadow-xl backdrop-blur-2xl'
                     }`}
                   >
                     {/* Status Indicator */}
                     {msg.statusText && (
-                      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-mono mb-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400 font-mono mb-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-zinc-300 animate-pulse" />
                         <span>{msg.statusText}</span>
                       </div>
                     )}
 
                     {/* Text Content with Secure Markdown Renderer */}
-                    <div className="leading-relaxed text-slate-900 dark:text-white civic-chat-content font-sans">
+                    <div className="leading-relaxed text-slate-800 dark:text-zinc-200">
                       {msg.role === 'user' ? (
                         <div className="whitespace-pre-wrap font-medium">{msg.content}</div>
                       ) : (
                         <div>
                           {renderSecureCivicText(msg.content)}
                           {isStreaming && msg.role === 'assistant' && msg.id === messages[messages.length - 1]?.id && (
-                            <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-slate-900 dark:bg-white animate-pulse rounded-xs align-middle" />
+                            <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-slate-900 dark:bg-zinc-200 animate-pulse rounded-xs align-middle" />
                           )}
                         </div>
                       )}
@@ -746,9 +715,9 @@ export function App() {
 
                     {/* Official Verified Evidence Rail */}
                     {msg.citations && msg.citations.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-black/5 dark:border-white/[0.08] flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-300 mr-1 font-mono tracking-wider flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                      <div className="mt-4 pt-3 border-t border-black/5 dark:border-white/[0.06] flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-zinc-400 mr-1 font-mono tracking-wider flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-slate-600 dark:text-zinc-400" />
                           {t.verifiedCitations}
                         </span>
                         {msg.citations.map((c) => (
@@ -757,45 +726,13 @@ export function App() {
                       </div>
                     )}
 
-                    {/* Footer Timestamp, Model Badge & Listen Control */}
-                    <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                      <div className="flex items-center gap-2">
-                        <span>{msg.timestamp}</span>
-                        {msg.modelUsed && (
-                          <span className="text-slate-700 dark:text-slate-300 bg-black/5 dark:bg-white/[0.06] border border-black/10 dark:border-white/[0.1] px-2 py-0.5 rounded font-mono text-[10px]">
-                            {msg.modelUsed}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* On-Demand Audio Speech Control */}
-                      {msg.role === 'assistant' && msg.id !== 'welcome' && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (isSpeakingAudio && activeSpeakingMessageId === msg.id) {
-                              stopSpeaking();
-                              setActiveSpeakingMessageId(null);
-                            } else {
-                              setActiveSpeakingMessageId(msg.id);
-                              speakResponse(msg.content, language);
-                            }
-                          }}
-                          className="flex items-center gap-1.5 px-2 py-0.5 rounded-md text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/[0.08] transition-all cursor-pointer font-sans text-xs"
-                          title="Listen to this response"
-                        >
-                          {isSpeakingAudio && activeSpeakingMessageId === msg.id ? (
-                            <>
-                              <VolumeX className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
-                              <span className="text-rose-400 font-medium">Stop Audio</span>
-                            </>
-                          ) : (
-                            <>
-                              <Volume2 className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 hover:text-emerald-400" />
-                              <span>Listen</span>
-                            </>
-                          )}
-                        </button>
+                    {/* Footer Timestamp & Model Badge */}
+                    <div className="mt-3 flex items-center justify-between text-[10px] text-slate-400 dark:text-zinc-400 font-mono">
+                      <span>{msg.timestamp}</span>
+                      {msg.modelUsed && (
+                        <span className="text-slate-600 dark:text-zinc-400 bg-black/5 dark:bg-white/[0.04] border border-black/10 dark:border-white/[0.08] px-2 py-0.5 rounded font-mono text-[10px]">
+                          {msg.modelUsed}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -816,62 +753,14 @@ export function App() {
 
       {/* Floating Liquid Glass Input Dock (Citizen Mode) */}
       {!isAdminMode && (
-        <div className="no-print fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC]/95 to-transparent dark:from-[#090B10] dark:via-[#090B10]/95 z-40 transition-colors">
-          <div className="max-w-4xl mx-auto space-y-2">
-            {/* Server Waking Up (Cold-Start Alert) */}
-            <AnimatePresence>
-              {isServerWakingUp && (
-                <motion.div
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 6 }}
-                  className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-mono shadow-sm"
-                >
-                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping shrink-0" />
-                  <span>⚡ Waking up Municipal Server from eco-sleep mode (Render free tier, est. 15s)...</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Active Voice Output Player & Pause/Stop Controller */}
-            <AnimatePresence>
-              {isSpeakingAudio && (
-                <motion.div
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 6 }}
-                  className="flex items-center justify-between px-4 py-2 rounded-xl bg-[#121622] border border-emerald-500/30 text-emerald-300 text-xs shadow-lg backdrop-blur-md"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex items-center gap-0.5">
-                      <span className="w-0.5 bg-emerald-400 rounded-full animate-wave-1" />
-                      <span className="w-0.5 bg-emerald-400 rounded-full animate-wave-2" />
-                      <span className="w-0.5 bg-emerald-400 rounded-full animate-wave-3" />
-                      <span className="w-0.5 bg-emerald-400 rounded-full animate-wave-4" />
-                    </div>
-                    <span className="font-medium text-slate-200">Playing Verified Civic Voice Output...</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      stopSpeaking();
-                      setActiveSpeakingMessageId(null);
-                    }}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-white/10 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 transition-all font-mono text-[11px] cursor-pointer"
-                  >
-                    <Square className="w-3 h-3 fill-current" />
-                    <span>Stop Audio</span>
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
+        <div className="no-print fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC]/90 to-transparent dark:from-[#08090D] dark:via-[#08090D]/90 z-40 transition-colors">
+          <div className="max-w-4xl mx-auto">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSubmit();
               }}
-              className="flex items-center gap-2 p-2 liquid-glass rounded-2xl shadow-2xl border border-slate-200 dark:border-white/[0.1] focus-within:border-slate-400 dark:focus-within:border-white/25 transition-all backdrop-blur-2xl"
+              className="flex items-center gap-2 p-2 liquid-glass rounded-2xl shadow-2xl border border-slate-200/80 dark:border-white/10 focus-within:border-slate-400 dark:focus-within:border-white/20 transition-all backdrop-blur-2xl"
             >
               {/* Voice Speech Recognition Button */}
               <motion.button
@@ -896,6 +785,7 @@ export function App() {
                   <span className="w-0.5 bg-slate-600 dark:bg-zinc-300 rounded-full animate-wave-2" />
                   <span className="w-0.5 bg-slate-600 dark:bg-zinc-300 rounded-full animate-wave-3" />
                   <span className="w-0.5 bg-slate-600 dark:bg-zinc-300 rounded-full animate-wave-4" />
+                  <span className="w-0.5 bg-slate-600 dark:bg-zinc-300 rounded-full animate-wave-5" />
                 </div>
               )}
 
@@ -914,20 +804,10 @@ export function App() {
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
                 type="button"
-                onClick={() => {
-                  setIsTTSEnabled((prev) => {
-                    const next = !prev;
-                    localStorage.setItem('nagrik_tts_autoplay', String(next));
-                    if (!next) {
-                      stopSpeaking();
-                      setActiveSpeakingMessageId(null);
-                    }
-                    return next;
-                  });
-                }}
+                onClick={() => setIsTTSEnabled(!isTTSEnabled)}
                 className={`p-2 rounded-xl transition-colors cursor-pointer ${
                   isTTSEnabled
-                    ? 'text-emerald-500 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/30'
+                    ? 'text-slate-900 dark:text-white bg-black/5 dark:bg-white/[0.1] border border-black/10 dark:border-white/20'
                     : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/[0.06]'
                 }`}
                 title={isTTSEnabled ? t.audioToggleOn : t.audioToggleOff}

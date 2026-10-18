@@ -8,7 +8,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-from fastapi import FastAPI, Request
+from fastapi import BackgroundTasks, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -120,51 +120,37 @@ async def health_check():
     }
 
 
-@app.get("/api/v1/keep-alive", tags=["Health & Status"])
-@app.get("/keep-alive", tags=["Health & Status"])
-async def keep_alive():
-    """All-in-One Keep-Alive endpoint optimized for cron-job.org.
-    Resets inactivity timers for Render (keeps worker awake),
-    Supabase (executes 1-row fetch to prevent 7-day auto-pause),
-    and Qdrant Cloud (pings vector cluster to prevent cluster dormancy).
-    """
-    import asyncio
-    import time
-    start = time.time()
-    results = {
-        "status": "alive",
-        "render": "online",
-        "supabase": "skipped",
-        "qdrant": "skipped",
-    }
-
-    # 1. Ping Supabase to reset 7-day pause timer
+def _ping_services_background():
+    """Background task: ping Supabase and Qdrant without delaying HTTP response."""
+    # 1. Touch Supabase PostgreSQL (resets 7-day auto-pause timer)
     try:
         if db_adapter.is_supabase and db_adapter.supabase:
-            await asyncio.to_thread(
-                lambda: db_adapter.supabase.table("municipal_wards").select("ward_id").limit(1).execute()
-            )
-            results["supabase"] = "active"
-        else:
-            results["supabase"] = "local_sqlite_active"
+            db_adapter.supabase.table("municipal_wards").select("ward_id").limit(1).execute()
     except Exception as e:
-        err_str = str(e)
-        if "PGRST" in err_str:
-            results["supabase"] = "active (postgrest_connected)"
-        else:
-            results["supabase"] = f"error: {err_str}"
+        print(f"[KeepAlive] Background Supabase ping: {e}")
 
-    # 2. Ping Qdrant Cloud to reset cluster suspension timer
+    # 2. Touch Qdrant Cloud (resets cluster suspension timer)
     try:
         q_client = hybrid_retriever.get_client()
         if q_client:
-            await asyncio.to_thread(q_client.get_collections)
-            results["qdrant"] = "cloud_active" if hybrid_retriever.is_cloud_active else "local_active"
+            q_client.get_collections()
     except Exception as e:
-        results["qdrant"] = f"error: {str(e)}"
+        print(f"[KeepAlive] Background Qdrant ping: {e}")
 
-    results["latency_ms"] = round((time.time() - start) * 1000, 2)
-    return results
+
+@app.get("/api/v1/keep-alive", tags=["Health & Status"])
+@app.get("/keep-alive", tags=["Health & Status"])
+@app.head("/api/v1/keep-alive", tags=["Health & Status"])
+@app.head("/keep-alive", tags=["Health & Status"])
+async def keep_alive(background_tasks: BackgroundTasks):
+    """All-in-One Keep-Alive endpoint optimized for cron-job.org.
+    Returns an immediate, ultra-lightweight 2-byte 'OK' response to guarantee:
+    1. Zero 'output too large' errors on cron-job.org free tier.
+    2. Sub-10ms response time with zero Render gateway timeouts (504).
+    3. Supabase and Qdrant pings executed asynchronously in the background.
+    """
+    background_tasks.add_task(_ping_services_background)
+    return Response(content="OK", media_type="text/plain", status_code=200)
 
 
 @app.get("/", tags=["Root"])
