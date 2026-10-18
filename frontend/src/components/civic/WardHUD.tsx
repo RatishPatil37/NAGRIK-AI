@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   MapPin,
   Globe,
@@ -11,8 +11,9 @@ import {
   Loader2,
   Shield,
   Home,
+  Check,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { NagrikLogo } from '../brand/NagrikLogo';
 import { AccountPopover, type UserProfile } from '../account/AccountPopover';
 import type { MunicipalWard } from '../../types';
@@ -41,9 +42,9 @@ interface WardHUDProps {
 }
 
 const LANGUAGES = [
-  { code: 'en-IN', label: 'English', short: 'EN' },
-  { code: 'hi-IN', label: 'हिंदी', short: 'HI' },
-  { code: 'mr-IN', label: 'मराठी', short: 'MR' },
+  { code: 'en-IN', label: 'English', subtext: 'English (India)', native: 'English' },
+  { code: 'hi-IN', label: 'हिंदी', subtext: 'Hindi (Official)', native: 'हिंदी' },
+  { code: 'mr-IN', label: 'मराठी', subtext: 'Marathi (State Official)', native: 'मराठी' },
 ];
 
 export const WardHUD: React.FC<WardHUDProps> = ({
@@ -68,6 +69,24 @@ export const WardHUD: React.FC<WardHUDProps> = ({
   activeView,
   onSelectView,
 }) => {
+  const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
+  const langMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close language menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (langMenuRef.current && !langMenuRef.current.contains(e.target as Node)) {
+        setIsLangMenuOpen(false);
+      }
+    };
+    if (isLangMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isLangMenuOpen]);
+
+  const currentLang = LANGUAGES.find((l) => l.code === language) || LANGUAGES[0];
+
   const currentWard =
     wards.find((w) => w.ward_id === selectedWardId) ||
     wards[3] || {
@@ -229,25 +248,70 @@ export const WardHUD: React.FC<WardHUDProps> = ({
             <ChevronDown className="w-2.5 h-2.5 text-slate-400 dark:text-zinc-500 pointer-events-none absolute right-2" />
           </div>
 
-          {/* Multilingual Selector */}
-          <div className="relative flex items-center px-2 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.06] text-xs text-slate-700 dark:text-zinc-300">
-            <Globe className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 shrink-0 mr-1" />
-            <select
-              value={language}
-              onChange={(e) => onSelectLanguage(e.target.value)}
-              className="bg-transparent text-slate-800 dark:text-zinc-200 font-medium focus:outline-none cursor-pointer text-xs pr-3 appearance-none"
+          {/* Custom Wide & Professional Multilingual Dropdown */}
+          <div className="relative" ref={langMenuRef}>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              type="button"
+              onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/[0.1] text-xs font-semibold text-slate-800 dark:text-zinc-200 transition-all cursor-pointer border border-slate-200/60 dark:border-white/10 shadow-sm"
+              title="Select Language"
+              aria-label="Select Language"
+              aria-expanded={isLangMenuOpen}
             >
-              {LANGUAGES.map((l) => (
-                <option
-                  key={l.code}
-                  value={l.code}
-                  className="bg-white dark:bg-[#0E1017] text-slate-900 dark:text-zinc-200"
+              <Globe className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+              <span className="font-semibold text-xs tracking-tight">{currentLang.native}</span>
+              <ChevronDown
+                className={`w-3 h-3 text-slate-400 dark:text-zinc-500 transition-transform duration-200 ${
+                  isLangMenuOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </motion.button>
+
+            {/* Floating Language Dropdown Card */}
+            <AnimatePresence>
+              {isLangMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 4, scale: 0.96 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 mt-2 w-56 rounded-2xl bg-white dark:bg-[#12141C] border border-slate-200/90 dark:border-white/10 shadow-2xl p-1.5 z-50 overflow-hidden"
                 >
-                  {l.short}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-2.5 h-2.5 text-slate-400 dark:text-zinc-500 pointer-events-none absolute right-1" />
+                  <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-slate-400 dark:text-zinc-500 border-b border-slate-100 dark:border-white/[0.06] mb-1 flex items-center justify-between">
+                    <span>Language</span>
+                    <span className="text-[9px] lowercase opacity-70">भाषा</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {LANGUAGES.map((l) => {
+                      const isSelected = language === l.code;
+                      return (
+                        <button
+                          key={l.code}
+                          type="button"
+                          onClick={() => {
+                            onSelectLanguage(l.code);
+                            setIsLangMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-colors cursor-pointer ${
+                            isSelected
+                              ? 'bg-slate-100 dark:bg-white/[0.1] text-slate-950 dark:text-white font-bold'
+                              : 'text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-white/[0.05]'
+                          }`}
+                        >
+                          <div>
+                            <div className="text-xs font-bold leading-tight">{l.native}</div>
+                            <div className="text-[10px] text-slate-400 dark:text-zinc-500">{l.subtext}</div>
+                          </div>
+                          {isSelected && <Check className="w-4 h-4 text-emerald-500 shrink-0 ml-2" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Theme Switcher Toggle */}

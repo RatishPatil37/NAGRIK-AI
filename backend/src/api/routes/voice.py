@@ -81,10 +81,33 @@ async def synthesize_speech(req: SynthesizeRequest):
     sarvam_key = (settings.SARVAM_API_KEY or "").strip()
     target_lang = SARVAM_LANG_MAP.get(req.language_code, SARVAM_LANG_MAP.get(req.language_code[:2], "hi-IN"))
 
-    # TIER 1: Sarvam AI Bulbul:v3 (only if text is under Sarvam's 500 char limit)
-    if sarvam_key and not _SARVAM_CIRCUIT_BROKEN and len(clean_text) <= 500:
+    # TIER 1: Sarvam AI Bulbul:v3 (Sentence-aligned chunking: max 3 items, max 500 chars per item)
+    if sarvam_key and not _SARVAM_CIRCUIT_BROKEN:
         try:
-            async with httpx.AsyncClient(timeout=4.0) as client:
+            # Split by punctuation (. ! ? । \n) into natural sentences
+            raw_sentences = re.findall(r'[^.!?।\n]+[.!?।\n]*', clean_text)
+            chunks: list[str] = []
+            current_chunk = ""
+
+            for s in (raw_sentences or [clean_text]):
+                st = s.strip()
+                if not st:
+                    continue
+                if len(current_chunk) + len(st) + 1 <= 480 and len(chunks) < 2:
+                    current_chunk = f"{current_chunk} {st}".strip()
+                else:
+                    if current_chunk:
+                        chunks.append(current_chunk)
+                    current_chunk = st[:480]
+
+            if current_chunk and len(chunks) < 3:
+                chunks.append(current_chunk)
+
+            final_inputs = [c[:490] for c in chunks[:3] if c.strip()]
+            if not final_inputs:
+                final_inputs = [clean_text[:490]]
+
+            async with httpx.AsyncClient(timeout=8.0) as client:
                 res = await client.post(
                     "https://api.sarvam.ai/text-to-speech",
                     headers={
@@ -92,12 +115,12 @@ async def synthesize_speech(req: SynthesizeRequest):
                         "Content-Type": "application/json",
                     },
                     json={
-                        "inputs": [clean_text],
+                        "inputs": final_inputs,
                         "target_language_code": target_lang,
                         "speaker": "shreya",
                         "pitch": 0,
-                        "pace": 1.0,
-                        "loudness": 1.5,
+                        "pace": 0.98,
+                        "loudness": 1.4,
                         "speech_sample_rate": 8000,
                         "enable_preprocessing": True,
                         "model": "bulbul:v3",
@@ -106,9 +129,9 @@ async def synthesize_speech(req: SynthesizeRequest):
 
                 if res.status_code == 200:
                     data = res.json()
-                    audio_b64 = data.get("audios", [None])[0]
-                    if audio_b64:
-                        audio_bytes = base64.b64decode(audio_b64)
+                    audios = data.get("audios", [])
+                    if audios and audios[0]:
+                        audio_bytes = base64.b64decode(audios[0])
                         return Response(
                             content=audio_bytes,
                             media_type="audio/wav",
@@ -120,7 +143,7 @@ async def synthesize_speech(req: SynthesizeRequest):
                     print(f"[VoiceGateway] Sarvam AI returned HTTP {res.status_code}. Latching circuit breaker to Edge-TTS.")
                     _SARVAM_CIRCUIT_BROKEN = True
                 else:
-                    print(f"[VoiceGateway] Sarvam AI status {res.status_code}, falling back to Edge-TTS.")
+                    print(f"[VoiceGateway] Sarvam AI status {res.status_code}: {res.text[:200]}, falling back to Edge-TTS.")
         except Exception as e:
             print(f"[VoiceGateway] Sarvam AI request error: {e}. Switching to Edge-TTS.")
 

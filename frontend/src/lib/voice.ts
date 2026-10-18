@@ -1,23 +1,30 @@
 /**
  * Multilingual Speech Gateway: Browser Web Speech API + Edge-TTS & Sarvam AI.
- * Tier 1 & 2: Server-Side Neural TTS (Microsoft Edge-TTS / Sarvam AI)
- * Tier 3: Browser Web SpeechSynthesis with Sentence-Level Chunking & Natural Voice Selection
+ * Tier 1 & 2: Server-Side Neural TTS (Sarvam AI Bulbul:v3 / Microsoft Edge-TTS)
+ * Tier 3: Browser Web SpeechSynthesis with Human Cadence, Punctuation Pauses & Neural Voice Selection
  *
  * Full Control: stopSpeaking(), pauseSpeaking(), resumeSpeaking(), subscribeSpeaking()
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { synthesizeSpeech } from './api';
 
 // Module-level sentinel: only one audio stream plays at any given time.
 let activeAudio: HTMLAudioElement | null = null;
 let _speakToken = 0;
 let _isSpeaking = false;
+let _sentenceTimeout: any = null;
 const _speakingListeners = new Set<(speaking: boolean) => void>();
 
 function notifySpeakingState(speaking: boolean) {
   _isSpeaking = speaking;
-  _speakingListeners.forEach((listener) => listener(speaking));
+  _speakingListeners.forEach((listener) => {
+    try {
+      listener(speaking);
+    } catch (e) {
+      console.error('[VoiceGateway] Error in speaking listener:', e);
+    }
+  });
 }
 
 export function subscribeSpeaking(callback: (speaking: boolean) => void) {
@@ -32,16 +39,33 @@ export function isCurrentlySpeaking(): boolean {
   return _isSpeaking;
 }
 
+/**
+ * Immediately stops all synthetic voice output (both server audio & browser speech).
+ * Clears all sentence queues, timeouts, and resets the speaking sentinel.
+ */
 export function stopSpeaking() {
   _speakToken++; // Invalidate any in-flight async speech requests
+
+  if (_sentenceTimeout) {
+    clearTimeout(_sentenceTimeout);
+    _sentenceTimeout = null;
+  }
+
   if (activeAudio) {
     activeAudio.pause();
+    activeAudio.currentTime = 0;
     activeAudio.src = '';
     activeAudio = null;
   }
-  if ('speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
+
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+    } catch (e) {
+      console.warn('[WebSpeech] Error cancelling speech:', e);
+    }
   }
+
   notifySpeakingState(false);
 }
 
@@ -49,7 +73,7 @@ export function pauseSpeaking() {
   if (activeAudio && !activeAudio.paused) {
     activeAudio.pause();
     notifySpeakingState(false);
-  } else if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+  } else if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.speaking) {
     window.speechSynthesis.pause();
     notifySpeakingState(false);
   }
@@ -59,29 +83,77 @@ export function resumeSpeaking() {
   if (activeAudio && activeAudio.paused) {
     activeAudio.play().catch(() => {});
     notifySpeakingState(true);
-  } else if ('speechSynthesis' in window && window.speechSynthesis.paused) {
+  } else if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.paused) {
     window.speechSynthesis.resume();
     notifySpeakingState(true);
   }
 }
 
-export function useVoiceRecognition(onResult: (text: string) => void, lang: string = 'en-IN') {
+/**
+ * Robust Speech-to-Text (STT) Hook.
+ * Handles microphone permissions, interim transcription, language selection,
+ * and user-friendly error reporting.
+ */
+export function useVoiceRecognition(
+  onResult: (text: string) => void,
+  lang: string = 'en-IN',
+  onErrorToast?: (msg: string) => void,
+  onInterim?: (text: string) => void
+) {
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch (e) {}
+      }
+    };
+  }, []);
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+    }
+    setIsListening(false);
+  }, []);
 
   const startListening = useCallback(() => {
+    // If already listening, clicking again toggles it off
+    if (isListening) {
+      stopListening();
+      return false;
+    }
+
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      setError('Web Speech API is not supported in this browser. Please type your query.');
+      const msg = 'Speech recognition is not supported in this browser. Please type your query or use Google Chrome / Microsoft Edge.';
+      setError(msg);
+      if (onErrorToast) onErrorToast(msg);
       return false;
     }
 
     try {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch (e) {}
+      }
+
       const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+
       recognition.continuous = false;
-      recognition.interimResults = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
       recognition.lang = lang;
 
       recognition.onstart = () => {
@@ -90,18 +162,46 @@ export function useVoiceRecognition(onResult: (text: string) => void, lang: stri
       };
 
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0]?.transcript;
-        if (transcript) {
-          onResult(transcript);
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const trans = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += trans;
+          } else {
+            interimTranscript += trans;
+          }
         }
-        setIsListening(false);
+
+        if (interimTranscript && onInterim) {
+          onInterim(interimTranscript);
+        }
+
+        if (finalTranscript && finalTranscript.trim()) {
+          onResult(finalTranscript.trim());
+          setIsListening(false);
+        }
       };
 
       recognition.onerror = (err: any) => {
         console.warn('[WebSpeech] Recognition error:', err);
         setIsListening(false);
-        if (err.error !== 'no-speech') {
-          setError(`Voice input error: ${err.error}`);
+
+        let userMsg = '';
+        if (err.error === 'not-allowed' || err.error === 'service-not-allowed') {
+          userMsg = 'Microphone permission blocked. Please click the lock or camera icon in your browser URL bar and choose "Allow" for Microphone.';
+        } else if (err.error === 'no-speech') {
+          userMsg = 'No voice detected. Please speak closer to your microphone.';
+        } else if (err.error === 'network') {
+          userMsg = 'Voice recognition network error. Please check your internet connection.';
+        } else if (err.error !== 'aborted') {
+          userMsg = `Voice input error: ${err.error}`;
+        }
+
+        if (userMsg) {
+          setError(userMsg);
+          if (onErrorToast) onErrorToast(userMsg);
         }
       };
 
@@ -109,70 +209,174 @@ export function useVoiceRecognition(onResult: (text: string) => void, lang: stri
         setIsListening(false);
       };
 
-      recognition.start();
+      // Ensure microphone access before triggering speech recognition
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices
+          .getUserMedia({ audio: true })
+          .then((stream) => {
+            // Permission confirmed! Stop dummy tracks so SpeechRecognition has full microphone access
+            stream.getTracks().forEach((track) => track.stop());
+            try {
+              recognition.start();
+            } catch (e) {
+              console.warn('[WebSpeech] recognition.start error:', e);
+            }
+          })
+          .catch((err) => {
+            console.warn('[WebSpeech] getUserMedia error:', err);
+            const userMsg = 'Microphone permission blocked. Please click the lock icon in your address bar to allow microphone access.';
+            setError(userMsg);
+            if (onErrorToast) onErrorToast(userMsg);
+            setIsListening(false);
+          });
+      } else {
+        recognition.start();
+      }
+
       return true;
     } catch (e: any) {
       console.error('[WebSpeech] Failed to start recognition:', e);
       setIsListening(false);
-      setError(e.message);
+      const msg = e.message || 'Could not start voice recognition';
+      setError(msg);
+      if (onErrorToast) onErrorToast(msg);
       return false;
     }
-  }, [lang, onResult]);
+  }, [lang, onResult, isListening, stopListening, onErrorToast, onInterim]);
 
-  return { isListening, error, startListening };
+  return { isListening, error, startListening, stopListening };
 }
 
 /**
- * Strips markdown markup, bracketed citations [S1], URLs, and extraneous symbols
- * so the synthetic voice reads natural, conversational prose.
+ * Strips markdown markup, bracketed citations [S1], URLs, and formatting
+ * so the voice reads natural, conversational prose with proper pause preservation.
  */
 function cleanCivicMarkdown(raw: string): string {
   return raw
-    .replace(/\[S\d+\]/g, '')
-    .replace(/https?:\/\/\S+/g, '')
-    .replace(/#{1,6}\s*/g, '')
-    .replace(/[*_~`>]/g, '')
-    .replace(/^\s*[-+*]\s+/gm, '')
-    .replace(/\n+/g, ' ')
+    .replace(/\[S\d+\]/g, '') // Remove [S1], [S2]
+    .replace(/https?:\/\/\S+/g, '') // Remove raw links
+    .replace(/#{1,6}\s*/g, '') // Remove markdown headers
+    .replace(/[*_~`>]/g, '') // Remove asterisks, backticks, quotes
+    .replace(/^\s*[-+*]\s+/gm, '') // Remove bullet points
+    .replace(/\|/g, ', ') // Tables to commas
+    .replace(/\n+/g, '. ') // Paragraphs to full-stop pauses
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 /**
- * Finds the most natural, human-like voice available in the client browser.
- * Prioritizes natural neural voices (Google, Microsoft, Natural).
+ * Filters out all mechanical/robotic Windows desktop voices (Microsoft David, Zira, Desktop)
+ * and selects the highest-fidelity natural, human-sounding voice available.
  */
 function getBestBrowserVoice(lang: string): SpeechSynthesisVoice | null {
-  if (!('speechSynthesis' in window)) return null;
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
+
   const voices = window.speechSynthesis.getVoices();
   if (!voices || voices.length === 0) return null;
 
   const prefix = lang.slice(0, 2).toLowerCase();
+
+  // Filter out all robotic legacy desktop voices
+  const isRobotic = (name: string) => {
+    const n = name.toLowerCase();
+    return (
+      n.includes('desktop') ||
+      n.includes('david') ||
+      n.includes('zira') ||
+      n.includes('hazel') ||
+      n.includes('george')
+    );
+  };
+
+  // 1. Language-matched voices
   const langVoices = voices.filter(
-    (v) => v.lang.toLowerCase() === lang.toLowerCase() || v.lang.toLowerCase().startsWith(prefix)
+    (v) =>
+      (v.lang.toLowerCase().replace('_', '-') === lang.toLowerCase().replace('_', '-') ||
+        v.lang.toLowerCase().startsWith(prefix)) &&
+      !isRobotic(v.name)
   );
 
-  if (langVoices.length === 0) return null;
-
-  // Prefer natural / neural quality voices
-  const preferred = langVoices.find((v) => {
-    const name = v.name.toLowerCase();
-    return (
-      name.includes('natural') ||
-      name.includes('google') ||
-      name.includes('online') ||
-      name.includes('neural')
-    );
+  // Search priority among language-matched voices:
+  // Priority 1: Microsoft Natural / Online Neural
+  const msNatural = langVoices.find((v) => {
+    const n = v.name.toLowerCase();
+    return n.includes('natural') || n.includes('online');
   });
+  if (msNatural) return msNatural;
 
-  return preferred || langVoices[0];
+  // Priority 2: Google Natural Neural voices (Chrome / Android)
+  const googleVoice = langVoices.find((v) => v.name.toLowerCase().includes('google'));
+  if (googleVoice) return googleVoice;
+
+  // Priority 3: Apple Siri / Enhanced
+  const appleVoice = langVoices.find(
+    (v) => v.name.toLowerCase().includes('enhanced') || v.name.toLowerCase().includes('siri')
+  );
+  if (appleVoice) return appleVoice;
+
+  if (langVoices.length > 0) return langVoices[0];
+
+  // 2. High-quality English fallbacks (Google UK Female / Google US)
+  const nonRoboticVoices = voices.filter((v) => !isRobotic(v.name));
+  const googleFemale = nonRoboticVoices.find(
+    (v) => v.name.toLowerCase().includes('google') && v.name.toLowerCase().includes('female')
+  );
+  if (googleFemale) return googleFemale;
+
+  const anyGoogle = nonRoboticVoices.find((v) => v.name.toLowerCase().includes('google'));
+  if (anyGoogle) return anyGoogle;
+
+  const anyNatural = nonRoboticVoices.find(
+    (v) => v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('online')
+  );
+  if (anyNatural) return anyNatural;
+
+  return nonRoboticVoices[0] || voices[0];
 }
 
 /**
- * Speaks the assistant's response.
- * Uses Server-Side Neural TTS (Edge-TTS) first for studio quality.
- * Falls back to Browser Web SpeechSynthesis with sentence-level chunking
- * to prevent Chrome's 15-second speech garbage-collection cutoff bug.
+ * Chunks speech into natural human breath clauses (pausing at commas, colons, and periods)
+ */
+interface SpeechClause {
+  text: string;
+  pauseMs: number;
+}
+
+function parseHumanClauses(text: string): SpeechClause[] {
+  // Regex to split on major punctuation: commas, semicolons, colons, periods, questions, exclamations, danda
+  const parts = text.split(/([,;:|•]+|[.!?।\n]+)/g);
+  const clauses: SpeechClause[] = [];
+
+  for (let i = 0; i < parts.length; i += 2) {
+    const phrase = (parts[i] || '').trim();
+    const punct = (parts[i + 1] || '').trim();
+
+    if (!phrase && !punct) continue;
+
+    const fullClause = `${phrase}${punct}`.trim();
+    if (!fullClause) continue;
+
+    // Determine breathing pause duration based on punctuation type:
+    let pauseMs = 180; // Standard breathing pause at commas (,) and semicolons (;)
+    if (/[!?।]$/.test(punct)) {
+      pauseMs = 400; // Emphatic pause for questions and exclamations
+    } else if (/[.]/.test(punct) || /\n/.test(punct)) {
+      pauseMs = 300; // Natural sentence full-stop breath pause
+    } else if (/[,;:]/.test(punct)) {
+      pauseMs = 180; // Commas and clauses pause
+    }
+
+    clauses.push({ text: fullClause, pauseMs });
+  }
+
+  return clauses.length > 0 ? clauses : [{ text, pauseMs: 300 }];
+}
+
+/**
+ * Speaks the assistant's response in authentic human-like conversational cadence:
+ * 1. Tries Server-Side Neural TTS (Sarvam AI Bulbul:v3 / Edge-TTS) for studio fidelity.
+ * 2. Falls back to Browser Web Speech with punctuation-aware sentence chunking,
+ *    inserting human breath pauses at commas, colons, and periods.
  */
 export async function speakResponse(text: string, lang: string = 'en-IN'): Promise<void> {
   const myToken = ++_speakToken;
@@ -187,11 +391,11 @@ export async function speakResponse(text: string, lang: string = 'en-IN'): Promi
 
   notifySpeakingState(true);
 
-  // ── Tier 1 & 2: Server-side Neural TTS (Edge-TTS / Sarvam AI) ──
+  // ── Tier 1 & 2: Server-side Neural TTS (Sarvam AI Bulbul:v3 / Edge-TTS) ──
   try {
     const blob = await synthesizeSpeech(cleanText, lang);
 
-    // If another speak request arrived while we were downloading, abort
+    // If another speak or stop request arrived while downloading, abort
     if (myToken !== _speakToken) return;
 
     const audioUrl = URL.createObjectURL(blob);
@@ -210,58 +414,76 @@ export async function speakResponse(text: string, lang: string = 'en-IN'): Promi
     audio.onerror = cleanup;
 
     await audio.play();
-    return; // Success!
+    return; // Success! Studio-quality neural audio playing.
   } catch (err) {
-    console.warn('[VoiceGateway] Server TTS unavailable, falling back to browser SpeechSynthesis:', err);
+    console.warn('[VoiceGateway] Server TTS unavailable, falling back to humanized browser SpeechSynthesis:', err);
     if (myToken !== _speakToken) return;
   }
 
-  // ── Tier 3: Browser Web SpeechSynthesis with Sentence-Level Chunking ──
-  if ('speechSynthesis' in window) {
-    // Split into natural sentence chunks to eliminate Chrome's 15-second limit
-    const sentences = cleanText.match(/[^.!?।\n]+[.!?।\n]+|[^.!?।\n]+$/g) || [cleanText];
+  // ── Tier 3: Humanized Browser Web SpeechSynthesis ──
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    const clauses = parseHumanClauses(cleanText);
     let currentIndex = 0;
-
     const voice = getBestBrowserVoice(lang);
 
-    function speakNextSentence() {
+    function speakNextClause() {
       if (myToken !== _speakToken) {
         notifySpeakingState(false);
         return;
       }
 
-      if (currentIndex >= sentences.length) {
+      if (currentIndex >= clauses.length) {
         notifySpeakingState(false);
         return;
       }
 
-      const segment = sentences[currentIndex++].trim();
-      if (!segment) {
-        speakNextSentence();
+      const item = clauses[currentIndex++];
+      if (!item || !item.text.trim()) {
+        speakNextClause();
         return;
       }
 
-      const utterance = new SpeechSynthesisUtterance(segment);
+      const utterance = new SpeechSynthesisUtterance(item.text);
       utterance.lang = lang;
-      utterance.rate = 0.98;
+
+      // Human-like Cadence & Intonation:
+      // Rate = 0.92 gives relaxed conversational cadence (not rushed or monotonous)
+      // Pitch = 1.0 gives a natural warm human register
+      utterance.rate = 0.92;
       utterance.pitch = 1.0;
+
       if (voice) {
         utterance.voice = voice;
       }
 
       utterance.onend = () => {
-        speakNextSentence();
+        if (myToken !== _speakToken) {
+          notifySpeakingState(false);
+          return;
+        }
+
+        // Insert breathing pause between clauses / sentences
+        _sentenceTimeout = setTimeout(() => {
+          speakNextClause();
+        }, item.pauseMs);
       };
 
       utterance.onerror = (e) => {
-        console.warn('[WebSpeech] Utterance error:', e);
+        if (e.error !== 'interrupted' && e.error !== 'canceled') {
+          console.warn('[WebSpeech] Utterance error:', e);
+        }
         notifySpeakingState(false);
       };
 
-      window.speechSynthesis.speak(utterance);
+      try {
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {
+        console.error('[WebSpeech] Speech call failed:', e);
+        notifySpeakingState(false);
+      }
     }
 
-    speakNextSentence();
+    speakNextClause();
   } else {
     notifySpeakingState(false);
   }

@@ -14,12 +14,14 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NagrikLogo } from '../brand/NagrikLogo';
+import type { UserProfile } from '../account/AccountPopover';
 
 interface LandingPageProps {
   onStartExploring: () => void;
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
   onOpenAccount?: () => void;
+  userProfile?: UserProfile;
 }
 
 const TESTIMONIALS = [
@@ -57,6 +59,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onStartExploring,
   theme,
   onToggleTheme,
+  onOpenAccount,
+  userProfile,
 }) => {
   // Newsletter State
   const [newsletterEmail, setNewsletterEmail] = useState('');
@@ -147,6 +151,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             >
               Get Started
             </button>
+
+            {/* Quick Account Profile Trigger */}
+            {onOpenAccount && (
+              <button
+                type="button"
+                onClick={onOpenAccount}
+                className="w-8 h-8 rounded-full overflow-hidden border border-slate-200 dark:border-white/10 hover:ring-2 hover:ring-amber-500/40 transition-all cursor-pointer ml-1"
+                title={userProfile?.name ? `${userProfile.name} - Account Settings` : 'Account Settings'}
+              >
+                <img
+                  src={userProfile?.avatarUrl || '/google-avatar.png'}
+                  alt={userProfile?.name || 'Account'}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/google-avatar.png';
+                  }}
+                />
+              </button>
+            )}
           </div>
         </div>
       </header>

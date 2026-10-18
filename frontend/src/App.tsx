@@ -35,7 +35,7 @@ import {
 import { getTranslation } from './lib/i18n';
 import { detectClosestWard } from './lib/geo';
 import { fetchWards, streamChatQuery } from './lib/api';
-import { useVoiceRecognition, speakResponse } from './lib/voice';
+import { useVoiceRecognition, speakResponse, stopSpeaking, subscribeSpeaking } from './lib/voice';
 import { renderSecureCivicText } from './lib/sanitize';
 import type {
   ChatMessage,
@@ -176,16 +176,34 @@ export function App() {
     }
   }, [messages, isStreaming, activeView]);
 
-  // Voice Recognition Handler
+  // Voice Speaking State Sentinel & Error Reporting
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const [voiceToast, setVoiceToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    return subscribeSpeaking((speaking) => {
+      setIsSpeaking(speaking);
+    });
+  }, []);
+
+  // Voice Recognition Handler with real-time interim transcription and error toasts
   const { isListening, startListening } = useVoiceRecognition(
     (transcript: string) => {
       setInputQuery(transcript);
       handleSubmit(transcript);
     },
-    language
+    language,
+    (errorMsg: string) => {
+      setVoiceToast(errorMsg);
+      setTimeout(() => setVoiceToast(null), 6000);
+    },
+    (interimText: string) => {
+      setInputQuery(interimText);
+    }
   );
 
   const handleResetChat = () => {
+    stopSpeaking();
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -384,10 +402,24 @@ export function App() {
       <SettingsView
         user={userProfile}
         onUpdateUser={handleUpdateUserProfile}
-        onNavigate={(view) => setActiveView(view)}
-        onClose={() => setActiveView('conversation')}
+        onNavigate={(view) => {
+          stopSpeaking();
+          setActiveView(view);
+        }}
+        onClose={() => {
+          stopSpeaking();
+          setActiveView('conversation');
+        }}
+        onSignOut={handleSignOut}
         isTTSEnabled={isTTSEnabled}
-        onToggleTTS={() => setIsTTSEnabled(!isTTSEnabled)}
+        onToggleTTS={() => {
+          if (isSpeaking || isTTSEnabled) {
+            stopSpeaking();
+            setIsTTSEnabled(false);
+          } else {
+            setIsTTSEnabled(true);
+          }
+        }}
         sessionsCount={storedSessions.length}
         onClearSessions={handleClearAllSessions}
       />
@@ -398,10 +430,17 @@ export function App() {
   if (activeView === 'landing') {
     return (
       <LandingPage
-        onStartExploring={() => setActiveView('conversation')}
+        onStartExploring={() => {
+          stopSpeaking();
+          setActiveView('conversation');
+        }}
         theme={theme}
         onToggleTheme={toggleTheme}
-        onOpenAccount={() => setActiveView('settings')}
+        onOpenAccount={() => {
+          stopSpeaking();
+          setActiveView('settings');
+        }}
+        userProfile={userProfile}
       />
     );
   }
@@ -614,6 +653,55 @@ export function App() {
       {activeView === 'conversation' && (
         <div className="fixed bottom-0 left-0 right-0 z-30 p-3 sm:p-5 pointer-events-none">
           <div className="max-w-3xl mx-auto w-full pointer-events-auto">
+            {/* Active Speech Playing Pill with 1-Click Stop Button */}
+            <AnimatePresence>
+              {isSpeaking && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                  className="flex justify-center mb-2"
+                >
+                  <button
+                    type="button"
+                    onClick={() => stopSpeaking()}
+                    className="px-4 py-1.5 rounded-full bg-slate-950/95 dark:bg-white text-white dark:text-slate-950 text-xs font-bold backdrop-blur-md shadow-xl flex items-center gap-2 hover:scale-105 transition-all cursor-pointer border border-white/20"
+                    title="Stop speaking"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                    <span>Speaking response...</span>
+                    <span className="px-1.5 py-0.5 rounded bg-red-500 text-white text-[10px] uppercase font-mono tracking-wider ml-1">
+                      Stop ⏹
+                    </span>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Voice Error Notification Toast */}
+            <AnimatePresence>
+              {voiceToast && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  className="mb-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs flex items-center justify-between gap-2 shadow-lg backdrop-blur-md"
+                >
+                  <div className="flex items-center gap-2">
+                    <MicOff className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span>{voiceToast}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setVoiceToast(null)}
+                    className="p-1 text-amber-500 hover:text-amber-700 dark:hover:text-amber-200 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -659,20 +747,43 @@ export function App() {
                 className="flex-1 bg-transparent px-3 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none font-medium"
               />
 
-              {/* TTS Speech Synthesis Audio Toggle */}
+              {/* TTS Speech Synthesis Audio & Mute Toggle */}
               <motion.button
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
                 type="button"
-                onClick={() => setIsTTSEnabled(!isTTSEnabled)}
+                onClick={() => {
+                  if (isSpeaking) {
+                    stopSpeaking();
+                  } else if (isTTSEnabled) {
+                    stopSpeaking();
+                    setIsTTSEnabled(false);
+                  } else {
+                    setIsTTSEnabled(true);
+                  }
+                }}
                 className={`p-2 rounded-xl transition-colors cursor-pointer ${
-                  isTTSEnabled
+                  isSpeaking
+                    ? 'text-white bg-amber-500 animate-pulse border border-amber-400 shadow-md shadow-amber-500/20'
+                    : isTTSEnabled
                     ? 'text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.1] border border-slate-200 dark:border-white/20'
                     : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06]'
                 }`}
-                title={isTTSEnabled ? t.audioToggleOn : t.audioToggleOff}
+                title={
+                  isSpeaking
+                    ? 'Stop speaking (Mute)'
+                    : isTTSEnabled
+                    ? t.audioToggleOn
+                    : t.audioToggleOff
+                }
               >
-                {isTTSEnabled ? <Volume2 className="w-4 h-4 text-emerald-500" /> : <VolumeX className="w-4 h-4" />}
+                {isSpeaking ? (
+                  <Volume2 className="w-4 h-4 text-white animate-bounce" />
+                ) : isTTSEnabled ? (
+                  <Volume2 className="w-4 h-4 text-emerald-500" />
+                ) : (
+                  <VolumeX className="w-4 h-4" />
+                )}
               </motion.button>
 
               {/* Send Button */}

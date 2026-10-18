@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Trash2,
   RefreshCw,
+  LogOut,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NagrikLogo } from '../brand/NagrikLogo';
@@ -24,6 +25,7 @@ interface SettingsViewProps {
   onUpdateUser: (updated: Partial<UserProfile>) => void;
   onNavigate: (view: 'conversation' | 'dashboard' | 'landing') => void;
   onClose?: () => void;
+  onSignOut?: () => void;
   isTTSEnabled?: boolean;
   onToggleTTS?: () => void;
   sessionsCount?: number;
@@ -35,6 +37,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onUpdateUser,
   onNavigate,
   onClose,
+  onSignOut,
   isTTSEnabled = false,
   onToggleTTS,
   sessionsCount = 0,
@@ -169,12 +172,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </nav>
         </div>
 
-        {/* Pinned Bottom Settings Pill (Exact Match to Screenshot 1) */}
-        <div className="pt-4 border-t border-slate-100 dark:border-white/[0.06]">
+        {/* Pinned Bottom Settings Pill & Sign Out Action */}
+        <div className="pt-4 border-t border-slate-100 dark:border-white/[0.06] space-y-2">
           <div className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-slate-900 dark:bg-zinc-800 text-white text-sm font-medium shadow-sm">
             <SettingsIcon className="w-4 h-4 text-slate-300" />
             <span>Settings</span>
           </div>
+
+          {onSignOut && (
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-500/10 text-xs sm:text-sm font-medium transition-colors cursor-pointer text-left"
+            >
+              <LogOut className="w-4 h-4 shrink-0" />
+              <span>Sign out</span>
+            </button>
+          )}
         </div>
       </aside>
 
