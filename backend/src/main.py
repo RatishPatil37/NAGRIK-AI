@@ -142,19 +142,24 @@ async def keep_alive():
     try:
         if db_adapter.is_supabase and db_adapter.supabase:
             await asyncio.to_thread(
-                lambda: db_adapter.supabase.table("wards").select("id").limit(1).execute()
+                lambda: db_adapter.supabase.table("municipal_wards").select("ward_id").limit(1).execute()
             )
             results["supabase"] = "active"
         else:
             results["supabase"] = "local_sqlite_active"
     except Exception as e:
-        results["supabase"] = f"error: {str(e)}"
+        err_str = str(e)
+        if "PGRST" in err_str:
+            results["supabase"] = "active (postgrest_connected)"
+        else:
+            results["supabase"] = f"error: {err_str}"
 
     # 2. Ping Qdrant Cloud to reset cluster suspension timer
     try:
-        if hybrid_retriever.qdrant_client:
-            await asyncio.to_thread(hybrid_retriever.qdrant_client.get_collections)
-            results["qdrant"] = "active"
+        q_client = hybrid_retriever.get_client()
+        if q_client:
+            await asyncio.to_thread(q_client.get_collections)
+            results["qdrant"] = "cloud_active" if hybrid_retriever.is_cloud_active else "local_active"
     except Exception as e:
         results["qdrant"] = f"error: {str(e)}"
 
