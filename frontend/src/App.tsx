@@ -157,7 +157,13 @@ export function App() {
 
   const [inputQuery, setInputQuery] = useState<string>('');
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
-  const [isTTSEnabled, setIsTTSEnabled] = useState<boolean>(false);
+  const [isTTSEnabled, setIsTTSEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('nagrik_tts_enabled');
+      return stored !== 'false'; // Default TRUE
+    }
+    return true;
+  });
   const [activeReceiptTicket, setActiveReceiptTicket] = useState<EscalationTicket | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -428,12 +434,10 @@ export function App() {
         onSignOut={handleSignOut}
         isTTSEnabled={isTTSEnabled}
         onToggleTTS={() => {
-          if (isSpeaking || isTTSEnabled) {
-            stopSpeaking();
-            setIsTTSEnabled(false);
-          } else {
-            setIsTTSEnabled(true);
-          }
+          if (isSpeaking) stopSpeaking();
+          const next = !isTTSEnabled;
+          setIsTTSEnabled(next);
+          localStorage.setItem('nagrik_tts_enabled', String(next));
         }}
         sessionsCount={storedSessions.length}
         onClearSessions={handleClearAllSessions}
@@ -633,10 +637,29 @@ export function App() {
                         )}
                       </div>
 
-                      {/* Timestamp */}
-                      <span className="text-[10px] font-mono text-slate-400 dark:text-zinc-500 mt-1 px-1">
-                        {msg.timestamp}
-                      </span>
+                      {/* Timestamp & Listen Button */}
+                      <div className="flex items-center gap-2 mt-1 px-1">
+                        <span className="text-[10px] font-mono text-slate-400 dark:text-zinc-500">
+                          {msg.timestamp}
+                        </span>
+                        {msg.role === 'assistant' && !isStreaming && msg.content && !msg.content.startsWith('⚠️') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isSpeaking) {
+                                stopSpeaking();
+                              } else {
+                                speakResponse(msg.content, language);
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-white transition-colors cursor-pointer py-0.5 px-1.5 rounded hover:bg-slate-100 dark:hover:bg-white/10"
+                            title={isSpeaking ? 'Stop speaking' : 'Listen to response'}
+                          >
+                            <Volume2 className="w-3 h-3 text-slate-400 dark:text-zinc-400 hover:text-emerald-500" />
+                            <span>{isSpeaking ? 'Stop' : 'Listen'}</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* User Avatar */}
@@ -790,11 +813,19 @@ export function App() {
                 onClick={() => {
                   if (isSpeaking) {
                     stopSpeaking();
-                  } else if (isTTSEnabled) {
-                    stopSpeaking();
-                    setIsTTSEnabled(false);
                   } else {
-                    setIsTTSEnabled(true);
+                    const next = !isTTSEnabled;
+                    setIsTTSEnabled(next);
+                    localStorage.setItem('nagrik_tts_enabled', String(next));
+                    if (next) {
+                      const assistantMsgs = messages.filter(
+                        (m) => m.role === 'assistant' && m.content && !m.content.startsWith('⚠️')
+                      );
+                      const latest = assistantMsgs[assistantMsgs.length - 1];
+                      if (latest) {
+                        speakResponse(latest.content, language);
+                      }
+                    }
                   }
                 }}
                 className={`p-2 rounded-xl transition-colors cursor-pointer ${
@@ -806,14 +837,14 @@ export function App() {
                 }`}
                 title={
                   isSpeaking
-                    ? 'Stop speaking (Mute)'
+                    ? 'Stop speaking'
                     : isTTSEnabled
-                    ? t.audioToggleOn
-                    : t.audioToggleOff
+                    ? 'Voice enabled (click to mute)'
+                    : 'Voice muted (click to enable)'
                 }
               >
                 {isSpeaking ? (
-                  <Volume2 className="w-4 h-4 text-white animate-bounce" />
+                  <Volume2 className="w-4 h-4 text-emerald-400 animate-bounce" />
                 ) : isTTSEnabled ? (
                   <Volume2 className="w-4 h-4 text-emerald-500" />
                 ) : (
@@ -821,26 +852,47 @@ export function App() {
                 )}
               </motion.button>
 
-              {/* Send Button — or Square Stop Button while recording */}
+              {/* Action Buttons: If recording, show BOTH Square Stop and Send; otherwise show Send */}
               {isListening ? (
-                <motion.button
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.96 }}
-                  type="button"
-                  onClick={stopListening}
-                  className="p-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold shadow-sm transition-all cursor-pointer"
-                  title="Stop recording and commit text"
-                >
-                  {/* Square stop icon — exactly like ChatGPT */}
-                  <span className="block w-4 h-4 rounded-sm bg-white" />
-                </motion.button>
+                <div className="flex items-center gap-1.5">
+                  {/* Square Stop Button: stops recording and keeps text in the input box */}
+                  <motion.button
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    type="button"
+                    onClick={stopListening}
+                    className="p-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold shadow-sm transition-all cursor-pointer flex items-center justify-center"
+                    title="Stop recording and keep text in box"
+                  >
+                    {/* Square stop icon — exactly like ChatGPT */}
+                    <span className="block w-3.5 h-3.5 rounded-sm bg-white" />
+                  </motion.button>
+
+                  {/* Send Button: stops recording and sends query directly */}
+                  <motion.button
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    type="button"
+                    onClick={() => {
+                      stopListening();
+                      if (inputQuery.trim()) {
+                        handleSubmit(inputQuery.trim());
+                      }
+                    }}
+                    disabled={!inputQuery.trim() || isStreaming}
+                    className="p-2.5 rounded-xl bg-slate-950 dark:bg-white hover:bg-slate-800 dark:hover:bg-zinc-200 disabled:opacity-30 disabled:hover:bg-slate-950 dark:disabled:hover:bg-white text-white dark:text-slate-950 font-semibold shadow-sm transition-all cursor-pointer flex items-center justify-center"
+                    title="Send query directly"
+                  >
+                    <Send className="w-4 h-4" />
+                  </motion.button>
+                </div>
               ) : (
                 <motion.button
                   whileHover={{ scale: 1.04 }}
                   whileTap={{ scale: 0.96 }}
                   type="submit"
                   disabled={!inputQuery.trim() || isStreaming}
-                  className="p-2.5 rounded-xl bg-slate-950 dark:bg-white hover:bg-slate-800 dark:hover:bg-zinc-200 disabled:opacity-30 disabled:hover:bg-slate-950 dark:disabled:hover:bg-white text-white dark:text-slate-950 font-semibold shadow-sm transition-all cursor-pointer"
+                  className="p-2.5 rounded-xl bg-slate-950 dark:bg-white hover:bg-slate-800 dark:hover:bg-zinc-200 disabled:opacity-30 disabled:hover:bg-slate-950 dark:disabled:hover:bg-white text-white dark:text-slate-950 font-semibold shadow-sm transition-all cursor-pointer flex items-center justify-center"
                   title={t.sendQuery}
                 >
                   <Send className="w-4 h-4" />

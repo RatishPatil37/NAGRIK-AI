@@ -58,8 +58,13 @@ export function stopSpeaking() {
     activeAudio = null;
   }
 
+  _activeUtterances.clear();
+
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
     try {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
       window.speechSynthesis.cancel();
     } catch (e) {
       console.warn('[WebSpeech] Error cancelling speech:', e);
@@ -248,6 +253,25 @@ export function useVoiceRecognition(
   return { isListening, error, startListening, stopListening };
 }
 
+// Active utterance set to prevent Chromium V8 garbage collection
+const _activeUtterances = new Set<SpeechSynthesisUtterance>();
+
+let _voicesList: SpeechSynthesisVoice[] = [];
+function getVoicesList(): SpeechSynthesisVoice[] {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return [];
+  if (_voicesList.length === 0) {
+    _voicesList = window.speechSynthesis.getVoices() || [];
+  }
+  return _voicesList;
+}
+
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  _voicesList = window.speechSynthesis.getVoices() || [];
+  window.speechSynthesis.onvoiceschanged = () => {
+    _voicesList = window.speechSynthesis.getVoices() || [];
+  };
+}
+
 /**
  * Strips markdown markup, bracketed citations [S1], URLs, and formatting
  * so the voice reads natural, conversational prose with proper pause preservation.
@@ -260,124 +284,100 @@ function cleanCivicMarkdown(raw: string): string {
     .replace(/[*_~`>]/g, '') // Remove asterisks, backticks, quotes
     .replace(/^\s*[-+*]\s+/gm, '') // Remove bullet points
     .replace(/\|/g, ', ') // Tables to commas
-    .replace(/\n+/g, '. ') // Paragraphs to full-stop pauses
+    .replace(/\n+/g, ' ') // Paragraphs to space
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 /**
- * Filters out all mechanical/robotic Windows desktop voices (Microsoft David, Zira, Desktop)
- * and selects the highest-fidelity natural, human-sounding voice available.
+ * Finds the highest-fidelity voice for the requested language.
+ * Prefers natural/neural/Google voices, but gracefully falls back to any available voice
+ * so Windows/Chromium users NEVER experience silent failure.
  */
 function getBestBrowserVoice(lang: string): SpeechSynthesisVoice | null {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
-
-  const voices = window.speechSynthesis.getVoices();
+  const voices = getVoicesList();
   if (!voices || voices.length === 0) return null;
 
-  const prefix = lang.slice(0, 2).toLowerCase();
+  const cleanLang = lang.toLowerCase().replace('_', '-');
+  const prefix = cleanLang.split('-')[0];
 
-  // Filter out all robotic legacy desktop voices
-  const isRobotic = (name: string) => {
-    const n = name.toLowerCase();
-    return (
-      n.includes('desktop') ||
-      n.includes('david') ||
-      n.includes('zira') ||
-      n.includes('hazel') ||
-      n.includes('george')
-    );
-  };
-
-  // 1. Language-matched voices
-  const langVoices = voices.filter(
-    (v) =>
-      (v.lang.toLowerCase().replace('_', '-') === lang.toLowerCase().replace('_', '-') ||
-        v.lang.toLowerCase().startsWith(prefix)) &&
-      !isRobotic(v.name)
-  );
-
-  // Search priority among language-matched voices:
-  // Priority 1: Microsoft Natural / Online Neural
-  const msNatural = langVoices.find((v) => {
+  // Priority 1: Exact match with neural/natural/online/google voice
+  const exactQuality = voices.find((v) => {
+    const vLang = v.lang.toLowerCase().replace('_', '-');
     const n = v.name.toLowerCase();
-    return n.includes('natural') || n.includes('online');
+    return (
+      vLang === cleanLang &&
+      (n.includes('natural') || n.includes('online') || n.includes('neural') || n.includes('google'))
+    );
   });
-  if (msNatural) return msNatural;
+  if (exactQuality) return exactQuality;
 
-  // Priority 2: Google Natural Neural voices (Chrome / Android)
-  const googleVoice = langVoices.find((v) => v.name.toLowerCase().includes('google'));
-  if (googleVoice) return googleVoice;
+  // Priority 2: Exact language match
+  const exactLang = voices.find((v) => v.lang.toLowerCase().replace('_', '-') === cleanLang);
+  if (exactLang) return exactLang;
 
-  // Priority 3: Apple Siri / Enhanced
-  const appleVoice = langVoices.find(
-    (v) => v.name.toLowerCase().includes('enhanced') || v.name.toLowerCase().includes('siri')
-  );
-  if (appleVoice) return appleVoice;
+  // Priority 3: Prefix match with quality voice (e.g. natural English voice for en-IN)
+  const prefixQuality = voices.find((v) => {
+    const vLang = v.lang.toLowerCase().replace('_', '-');
+    const n = v.name.toLowerCase();
+    return (
+      vLang.startsWith(prefix) &&
+      (n.includes('natural') || n.includes('online') || n.includes('neural') || n.includes('google'))
+    );
+  });
+  if (prefixQuality) return prefixQuality;
 
-  if (langVoices.length > 0) return langVoices[0];
+  // Priority 4: Any prefix match (includes Microsoft David, Zira, etc. — never exclude!)
+  const anyPrefix = voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith(prefix));
+  if (anyPrefix) return anyPrefix;
 
-  // 2. High-quality English fallbacks (Google UK Female / Google US)
-  const nonRoboticVoices = voices.filter((v) => !isRobotic(v.name));
-  const googleFemale = nonRoboticVoices.find(
-    (v) => v.name.toLowerCase().includes('google') && v.name.toLowerCase().includes('female')
-  );
-  if (googleFemale) return googleFemale;
+  // Priority 5: For English, any English voice
+  if (prefix === 'en') {
+    const anyEn = voices.find((v) => v.lang.toLowerCase().startsWith('en'));
+    if (anyEn) return anyEn;
+  }
 
-  const anyGoogle = nonRoboticVoices.find((v) => v.name.toLowerCase().includes('google'));
-  if (anyGoogle) return anyGoogle;
-
-  const anyNatural = nonRoboticVoices.find(
-    (v) => v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('online')
-  );
-  if (anyNatural) return anyNatural;
-
-  return nonRoboticVoices[0] || voices[0];
+  // Priority 6: Default or first available voice
+  return voices.find((v) => v.default) || voices[0] || null;
 }
 
 /**
- * Chunks speech into natural human breath clauses (pausing at commas, colons, and periods)
+ * Chunks text into natural sentences (by punctuation . ! ? । or newlines)
+ * so phrases with commas stay intact and sound conversational with natural pauses.
  */
-interface SpeechClause {
-  text: string;
-  pauseMs: number;
-}
-
-function parseHumanClauses(text: string): SpeechClause[] {
-  // Regex to split on major punctuation: commas, semicolons, colons, periods, questions, exclamations, danda
-  const parts = text.split(/([,;:|•]+|[.!?।\n]+)/g);
-  const clauses: SpeechClause[] = [];
-
-  for (let i = 0; i < parts.length; i += 2) {
-    const phrase = (parts[i] || '').trim();
-    const punct = (parts[i + 1] || '').trim();
-
-    if (!phrase && !punct) continue;
-
-    const fullClause = `${phrase}${punct}`.trim();
-    if (!fullClause) continue;
-
-    // Determine breathing pause duration based on punctuation type:
-    let pauseMs = 180; // Standard breathing pause at commas (,) and semicolons (;)
-    if (/[!?।]$/.test(punct)) {
-      pauseMs = 400; // Emphatic pause for questions and exclamations
-    } else if (/[.]/.test(punct) || /\n/.test(punct)) {
-      pauseMs = 300; // Natural sentence full-stop breath pause
-    } else if (/[,;:]/.test(punct)) {
-      pauseMs = 180; // Commas and clauses pause
-    }
-
-    clauses.push({ text: fullClause, pauseMs });
+function splitIntoNaturalSentences(text: string): string[] {
+  const raw = text.match(/[^.!?।\n]+[.!?।\n]*/g);
+  if (!raw || raw.length === 0) {
+    return [text.trim()];
   }
 
-  return clauses.length > 0 ? clauses : [{ text, pauseMs: 300 }];
+  const sentences: string[] = [];
+  let buffer = '';
+
+  for (const part of raw) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    if ((buffer + ' ' + trimmed).length < 240) {
+      buffer = buffer ? `${buffer} ${trimmed}` : trimmed;
+    } else {
+      if (buffer) sentences.push(buffer);
+      buffer = trimmed;
+    }
+  }
+  if (buffer) {
+    sentences.push(buffer);
+  }
+
+  return sentences.length > 0 ? sentences : [text.trim()];
 }
 
 /**
  * Speaks the assistant's response in authentic human-like conversational cadence:
- * 1. Tries Server-Side Neural TTS (Sarvam AI Bulbul:v3 / Edge-TTS) for studio fidelity.
- * 2. Falls back to Browser Web Speech with punctuation-aware sentence chunking,
- *    inserting human breath pauses at commas, colons, and periods.
+ * 1. Tries Server-Side Neural TTS (Sarvam AI Bulbul:v3 / Edge-TTS) with fast timeout.
+ * 2. Seamlessly falls back to humanized Browser Web SpeechSynthesis with:
+ *    - Sentence-level natural punctuation pauses
+ *    - Memory leak / GC protection in Chromium
+ *    - Unsticking paused browser speech synthesis
  */
 export async function speakResponse(text: string, lang: string = 'en-IN'): Promise<void> {
   const myToken = ++_speakToken;
@@ -392,99 +392,129 @@ export async function speakResponse(text: string, lang: string = 'en-IN'): Promi
 
   notifySpeakingState(true);
 
-  // ── Tier 1 & 2: Server-side Neural TTS (Sarvam AI Bulbul:v3 / Edge-TTS) ──
+  // ── Tier 1 & 2: Server-Side Neural TTS (Sarvam AI / Edge-TTS) ──
   try {
-    const blob = await synthesizeSpeech(cleanText, lang);
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Server TTS timeout')), 3500)
+    );
+    const blobPromise = synthesizeSpeech(cleanText, lang);
+    const blob = await Promise.race([blobPromise, timeoutPromise]);
 
-    // If another speak or stop request arrived while downloading, abort
     if (myToken !== _speakToken) return;
 
     const audioUrl = URL.createObjectURL(blob);
     const audio = new Audio(audioUrl);
     activeAudio = audio;
 
-    const cleanup = () => {
-      URL.revokeObjectURL(audioUrl);
-      if (activeAudio === audio) {
-        activeAudio = null;
+    await new Promise<void>((resolve, reject) => {
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        if (activeAudio === audio) activeAudio = null;
         notifySpeakingState(false);
-      }
-    };
-
-    audio.onended = cleanup;
-    audio.onerror = cleanup;
-
-    await audio.play();
+        resolve();
+      };
+      audio.onerror = (e) => {
+        URL.revokeObjectURL(audioUrl);
+        if (activeAudio === audio) activeAudio = null;
+        reject(e);
+      };
+      audio.play().catch(reject);
+    });
     return; // Success! Studio-quality neural audio playing.
   } catch (err) {
-    console.warn('[VoiceGateway] Server TTS unavailable, falling back to humanized browser SpeechSynthesis:', err);
+    console.warn('[VoiceGateway] Server TTS unavailable, falling back to browser SpeechSynthesis:', err);
     if (myToken !== _speakToken) return;
   }
 
   // ── Tier 3: Humanized Browser Web SpeechSynthesis ──
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-    const clauses = parseHumanClauses(cleanText);
-    let currentIndex = 0;
-    const voice = getBestBrowserVoice(lang);
+    try {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+      window.speechSynthesis.cancel();
+    } catch (_) {}
 
-    function speakNextClause() {
+    const sentences = splitIntoNaturalSentences(cleanText);
+    if (sentences.length === 0) {
+      notifySpeakingState(false);
+      return;
+    }
+
+    const voice = getBestBrowserVoice(lang);
+    let currentIndex = 0;
+
+    function playNextSentence() {
       if (myToken !== _speakToken) {
         notifySpeakingState(false);
         return;
       }
 
-      if (currentIndex >= clauses.length) {
+      if (currentIndex >= sentences.length) {
         notifySpeakingState(false);
         return;
       }
 
-      const item = clauses[currentIndex++];
-      if (!item || !item.text.trim()) {
-        speakNextClause();
-        return;
-      }
-
-      const utterance = new SpeechSynthesisUtterance(item.text);
-      utterance.lang = lang;
-
-      // Human-like Cadence & Intonation:
-      // Rate = 0.92 gives relaxed conversational cadence (not rushed or monotonous)
-      // Pitch = 1.0 gives a natural warm human register
-      utterance.rate = 0.92;
-      utterance.pitch = 1.0;
+      const sentenceText = sentences[currentIndex++];
+      const utterance = new SpeechSynthesisUtterance(sentenceText);
+      _activeUtterances.add(utterance);
 
       if (voice) {
         utterance.voice = voice;
+        utterance.lang = voice.lang || lang;
+      } else {
+        utterance.lang = lang;
       }
 
+      // Natural cadence:
+      utterance.rate = 0.96;
+      utterance.pitch = 1.0;
+
       utterance.onend = () => {
+        _activeUtterances.delete(utterance);
         if (myToken !== _speakToken) {
           notifySpeakingState(false);
           return;
         }
-
-        // Insert breathing pause between clauses / sentences
-        _sentenceTimeout = setTimeout(() => {
-          speakNextClause();
-        }, item.pauseMs);
+        if (currentIndex >= sentences.length) {
+          notifySpeakingState(false);
+        } else {
+          // Natural sentence breathing pause (120ms)
+          _sentenceTimeout = setTimeout(() => {
+            playNextSentence();
+          }, 120);
+        }
       };
 
       utterance.onerror = (e) => {
+        _activeUtterances.delete(utterance);
         if (e.error !== 'interrupted' && e.error !== 'canceled') {
-          console.warn('[WebSpeech] Utterance error:', e);
+          console.warn('[WebSpeech] Utterance warning:', e);
         }
-        notifySpeakingState(false);
+        if (myToken !== _speakToken) {
+          notifySpeakingState(false);
+          return;
+        }
+        if (currentIndex >= sentences.length) {
+          notifySpeakingState(false);
+        } else {
+          playNextSentence();
+        }
       };
 
       try {
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
         window.speechSynthesis.speak(utterance);
       } catch (e) {
         console.error('[WebSpeech] Speech call failed:', e);
+        _activeUtterances.delete(utterance);
         notifySpeakingState(false);
       }
     }
 
-    speakNextClause();
+    playNextSentence();
   } else {
     notifySpeakingState(false);
   }

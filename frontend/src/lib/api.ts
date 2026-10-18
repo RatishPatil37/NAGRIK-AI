@@ -174,5 +174,9 @@ export async function synthesizeSpeech(text: string, languageCode: string): Prom
   if (!res.ok) {
     throw new Error(`Voice synthesis failed: HTTP ${res.status}`);
   }
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('audio')) {
+    throw new Error(`Voice synthesis returned non-audio response: ${contentType}`);
+  }
   return res.blob();
 }
