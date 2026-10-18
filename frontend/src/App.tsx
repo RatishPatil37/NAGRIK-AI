@@ -9,14 +9,6 @@ import {
   RotateCcw,
   Bot,
   CheckCircle2,
-  Scale,
-  FileCheck2,
-  ShieldAlert,
-  Building2,
-  ArrowRight,
-  Clock,
-  Hash,
-  Compass,
   MapPin,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,6 +22,8 @@ import { EscalationCard } from './components/chat/EscalationCard';
 import { ReceiptModal } from './components/chat/ReceiptModal';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { ConversationSidebar } from './components/chat/ConversationSidebar';
+import { SettingsModal } from './components/civic/SettingsModal';
+import { AccountModal } from './components/civic/AccountModal';
 import {
   getStoredSessions,
   saveStoredSession,
@@ -61,6 +55,8 @@ export function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [isDetectingWard, setIsDetectingWard] = useState<boolean>(false);
   const [wardNotification, setWardNotification] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isAccountOpen, setIsAccountOpen] = useState<boolean>(false);
 
   // Localization Dictionary
   const t = getTranslation(language);
@@ -396,6 +392,8 @@ export function App() {
         sessionsCount={storedSessions.length}
         onDetectWard={handleDetectWard}
         isDetectingWard={isDetectingWard}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenAccount={() => setIsAccountOpen(true)}
       />
 
       {/* Geolocation Auto-Detection Notification Banner */}
@@ -429,6 +427,27 @@ export function App() {
         onClose={() => setActiveReceiptTicket(null)}
       />
 
+      {/* ⚙️ Preserved Settings Modal (Professional Interface) */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        language={language}
+        onSelectLanguage={(lang) => setLanguage(lang)}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        isTTSEnabled={isTTSEnabled}
+        onToggleTTS={() => setIsTTSEnabled(!isTTSEnabled)}
+        onClearSessions={handleClearAllSessions}
+        sessionsCount={storedSessions.length}
+      />
+
+      {/* 👤 Preserved Account Information Modal (Top Right Account Details) */}
+      <AccountModal
+        isOpen={isAccountOpen}
+        onClose={() => setIsAccountOpen(false)}
+        currentWard={currentWard}
+      />
+
       {/* MAIN VIEW: Admin Dashboard vs Citizen Concierge */}
       {isAdminMode ? (
         <main className="flex-1 relative z-10">
@@ -441,163 +460,10 @@ export function App() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.4 }}
               className="my-auto py-2"
             >
               <TypewriterHero onSelectQuery={(q) => handleSubmit(q)} />
-
-              {/* 21st.dev-Inspired Liquid Glass Bento Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto my-6 px-2">
-                {/* Bento Card 1: Wide (Span 2) - Automated Statutory Triage */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.45, delay: 0.05 }}
-                  whileHover={{ y: -2 }}
-                  onClick={() => handleSubmit('Report water pipe burst with contaminated water')}
-                  className="md:col-span-2 liquid-glass p-5 rounded-2xl cursor-pointer group border border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 mb-3">
-                      <div className="flex items-center gap-2">
-                        <FileCheck2 className="w-4 h-4 text-slate-700 dark:text-zinc-300" />
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                          {t.statutorySlaTriage}
-                        </span>
-                      </div>
-                      <ArrowRight className="w-4 h-4 text-slate-400 dark:text-zinc-500 group-hover:text-slate-900 dark:group-hover:text-white group-hover:translate-x-0.5 transition-all" />
-                    </div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-slate-700 dark:group-hover:text-zinc-200 transition-colors font-display mb-1.5">
-                      {t.bentoGrievanceTitle}
-                    </h3>
-                    <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed max-w-lg mb-4">
-                      {t.bentoGrievanceDesc}
-                    </p>
-                  </div>
-
-                  {/* Simulated Docket Capsule */}
-                  <div className="p-3 rounded-xl bg-black/5 dark:bg-white/[0.02] border border-black/10 dark:border-white/[0.06] flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
-                    <div className="flex items-center gap-2 text-slate-800 dark:text-zinc-300">
-                      <Hash className="w-3.5 h-3.5 text-slate-500" />
-                      <span>MCGM-2026-W04-7492</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-slate-600 dark:text-zinc-400">
-                      <Clock className="w-3.5 h-3.5 text-slate-500" />
-                      <span>SLA: 4h Dispatch</span>
-                    </div>
-                    <span className="px-2 py-0.5 rounded bg-black/5 dark:bg-white/[0.05] text-slate-800 dark:text-zinc-300 border border-black/10 dark:border-white/10 text-[10px]">
-                      Water Supply & Sewerage
-                    </span>
-                  </div>
-                </motion.div>
-
-                {/* Bento Card 2: Deterministic Hybrid RRF Gazette Grounding */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.45, delay: 0.15 }}
-                  whileHover={{ y: -2 }}
-                  onClick={() => handleSubmit('What is the early bird 10% rebate for Property Tax in Ward 4?')}
-                  className="liquid-glass p-5 rounded-2xl cursor-pointer group border border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 mb-3">
-                      <div className="flex items-center gap-2">
-                        <Scale className="w-4 h-4 text-slate-700 dark:text-zinc-300" />
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                          Deterministic Core
-                        </span>
-                      </div>
-                      <ArrowRight className="w-4 h-4 text-slate-400 dark:text-zinc-500 group-hover:text-slate-900 dark:group-hover:text-white group-hover:translate-x-0.5 transition-all" />
-                    </div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-slate-700 dark:group-hover:text-zinc-200 transition-colors font-display mb-1.5">
-                      {t.bentoTaxTitle}
-                    </h3>
-                    <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed mb-4">
-                      {t.bentoTaxDesc}
-                    </p>
-                  </div>
-                  <div className="text-[11px] font-mono text-slate-600 dark:text-zinc-400 group-hover:text-slate-900 dark:group-hover:text-zinc-200 flex items-center gap-1 transition-colors">
-                    <span>Inspect Section 128 Rules</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </div>
-                </motion.div>
-
-                {/* Bento Card 3: Disaster & Life-Safety Interceptor */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.45, delay: 0.25 }}
-                  whileHover={{ y: -2 }}
-                  onClick={() => handleSubmit('Emergency: Building wall collapsed with live wires on street')}
-                  className="liquid-glass p-5 rounded-2xl cursor-pointer group border border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 mb-3">
-                      <div className="flex items-center gap-2">
-                        <ShieldAlert className="w-4 h-4 text-rose-500" />
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-rose-500/90">
-                          &lt;5ms Pre-Gate
-                        </span>
-                      </div>
-                      <ArrowRight className="w-4 h-4 text-slate-400 dark:text-zinc-500 group-hover:text-slate-900 dark:group-hover:text-white group-hover:translate-x-0.5 transition-all" />
-                    </div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-slate-700 dark:group-hover:text-zinc-200 transition-colors font-display mb-1.5">
-                      {t.bentoSafetyTitle}
-                    </h3>
-                    <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed mb-4">
-                      {t.bentoSafetyDesc}
-                    </p>
-                  </div>
-                  <div className="text-[11px] font-mono text-slate-600 dark:text-zinc-400 group-hover:text-rose-500 flex items-center gap-1 transition-colors">
-                    <span>Simulate Safety Trigger</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </div>
-                </motion.div>
-
-                {/* Bento Card 4: Wide (Span 2) - Urban Planning & OBPAS */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.45, delay: 0.35 }}
-                  whileHover={{ y: -2 }}
-                  onClick={() => handleSubmit('What are the setbacks and approval SLAs for building plan permission?')}
-                  className="md:col-span-2 liquid-glass p-5 rounded-2xl cursor-pointer group border border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex items-center justify-between text-slate-500 dark:text-zinc-400 mb-3">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="w-4 h-4 text-slate-700 dark:text-zinc-300" />
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                          Town Planning & Permissions
-                        </span>
-                      </div>
-                      <ArrowRight className="w-4 h-4 text-slate-400 dark:text-zinc-500 group-hover:text-slate-900 dark:group-hover:text-white group-hover:translate-x-0.5 transition-all" />
-                    </div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-slate-700 dark:group-hover:text-zinc-200 transition-colors font-display mb-1.5">
-                      {t.bentoBuildingTitle}
-                    </h3>
-                    <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed max-w-lg mb-4">
-                      {t.bentoBuildingDesc}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400 pt-2 border-t border-black/5 dark:border-white/[0.06] font-mono">
-                    <span className="flex items-center gap-1.5">
-                      <Compass className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
-                      <span>{t.verifiedGazettes}</span>
-                    </span>
-                    <span className="group-hover:text-slate-900 dark:group-hover:text-white transition-colors flex items-center gap-1">
-                      <span>Query Setback Rules</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </span>
-                  </div>
-                </motion.div>
-              </div>
             </motion.div>
           )}
 

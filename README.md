@@ -3,7 +3,7 @@
 ### Enterprise Municipal RAG & Executive Decision Support Operating System
 
 <p align="center">
-  <a href="https://nagrik-ai.vercel.app"><img src="https://img.shields.io/badge/Live%20Demo-nagrik--ai.vercel.app-10B981?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo" /></a>
+  <a href="https://nagrik-ai-phi.vercel.app"><img src="https://img.shields.io/badge/Live%20Demo-nagrik--ai--phi.vercel.app-10B981?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo" /></a>
   <a href="https://nagrik-ai-wvuw.onrender.com/health"><img src="https://img.shields.io/badge/API%20Gateway-Render%20Live-46E3B7?style=for-the-badge&logo=render&logoColor=white" alt="API Gateway" /></a>
   <img src="https://img.shields.io/badge/Qdrant%20Cloud-Hybrid%20Dense%2BSparse%20RRF-DC2626?style=for-the-badge&logo=qdrant&logoColor=white" alt="Qdrant Cloud" />
   <img src="https://img.shields.io/badge/Primary%20LLM-Gemini%203.7%20Flash-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Gemini 3.7 Flash" />
@@ -17,7 +17,7 @@
 **Nagrik AI (नागरिक AI)** is a production-hardened municipal intelligence engine and civic decision support platform built for Urban Local Bodies (Municipal Corporations). Grounded strictly in official Ministry of Housing and Urban Affairs (**MoHUA**) gazettes, **CPHEEO** water/sanitation manuals, and state municipal corporation bylaws, it provides instant, non-hallucinatory civic advisory and autonomous grievance resolution.
 
 ### 🌐 Live Cloud Deployments
-* **Citizen Portal & Administrative Workstation**: [https://nagrik-ai.vercel.app](https://nagrik-ai.vercel.app)
+* **Citizen Portal & Administrative Workstation**: [https://nagrik-ai-phi.vercel.app](https://nagrik-ai-phi.vercel.app)
 * **Backend API Gateway**: [https://nagrik-ai-wvuw.onrender.com](https://nagrik-ai-wvuw.onrender.com)
 * **Runtime Health & Telemetry**: [https://nagrik-ai-wvuw.onrender.com/health](https://nagrik-ai-wvuw.onrender.com/health)
 * **All-in-One Keep-Alive Route**: [https://nagrik-ai-wvuw.onrender.com/api/v1/keep-alive](https://nagrik-ai-wvuw.onrender.com/api/v1/keep-alive)

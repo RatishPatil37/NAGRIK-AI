@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Crosshair,
   Loader2,
+  Sliders,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { MunicipalWard } from '../../types';
@@ -30,6 +31,8 @@ interface WardHUDProps {
   sessionsCount: number;
   onDetectWard: () => void;
   isDetectingWard: boolean;
+  onOpenSettings: () => void;
+  onOpenAccount: () => void;
 }
 
 const LANGUAGES = [
@@ -53,6 +56,8 @@ export const WardHUD: React.FC<WardHUDProps> = ({
   sessionsCount,
   onDetectWard,
   isDetectingWard,
+  onOpenSettings,
+  onOpenAccount,
 }) => {
   const t = getTranslation(language);
 
@@ -65,8 +70,8 @@ export const WardHUD: React.FC<WardHUDProps> = ({
   return (
     <header className="sticky top-0 z-40 liquid-glass-nav px-3 sm:px-6 py-2.5 transition-all">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
-        {/* Left Side: Sidebar Toggle & Brand */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* Left Side: Sidebar Toggle & The Logo */}
+        <div className="flex items-center gap-2 sm:gap-3.5">
           {/* Gemini-Style Sidebar Toggle Button */}
           {!isAdminMode && (
             <motion.button
@@ -86,18 +91,19 @@ export const WardHUD: React.FC<WardHUDProps> = ({
             </motion.button>
           )}
 
-          {/* Municipal Vector Crest */}
-          <div className="flex items-center gap-2.5">
+          {/* 🏛️ The Logo: Executive Municipal Seal & Brand */}
+          <div className="flex items-center gap-2.5 cursor-pointer select-none">
             <motion.div
-              whileHover={{ scale: 1.04 }}
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-black/5 dark:bg-white/[0.06] border border-black/10 dark:border-white/10 flex items-center justify-center text-slate-900 dark:text-zinc-100 shadow-sm"
+              whileHover={{ scale: 1.05, rotate: 2 }}
+              whileTap={{ scale: 0.95 }}
+              className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 via-slate-900/60 to-black/80 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-lg shadow-emerald-500/5"
             >
               <svg
-                className="w-4 h-4 sm:w-5 sm:h-5 text-slate-800 dark:text-zinc-200"
+                className="w-5 h-5 text-emerald-400 drop-shadow-[0_2px_8px_rgba(16,185,129,0.4)]"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.75"
+                strokeWidth="1.85"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
@@ -105,25 +111,30 @@ export const WardHUD: React.FC<WardHUDProps> = ({
                 <path d="M12 7v10" />
                 <path d="M8 11h8" />
               </svg>
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 animate-ping opacity-75" />
             </motion.div>
+
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-sm sm:text-base tracking-tight text-slate-900 dark:text-white font-display">
-                  {t.brandTitle}
+                <span className="font-extrabold text-sm sm:text-base tracking-tight text-slate-950 dark:text-white font-display">
+                  NAGRIK AI
                 </span>
-                <span className="text-[10px] font-mono text-slate-600 dark:text-zinc-400 px-1 py-0.5 rounded bg-black/5 dark:bg-white/[0.04] border border-black/10 dark:border-white/[0.07]">
-                  OS v2.6
+                <span className="text-[10px] font-mono text-emerald-400/90 font-medium hidden sm:inline">
+                  (नागरिक AI)
+                </span>
+                <span className="text-[9px] font-mono text-slate-500 dark:text-zinc-400 px-1.5 py-0.2 rounded bg-black/5 dark:bg-white/[0.04] border border-black/10 dark:border-white/[0.08]">
+                  v2.6
                 </span>
               </div>
               <div className="flex items-center gap-1.5 text-[9px] sm:text-[10px] text-slate-500 dark:text-zinc-400 hidden sm:flex font-mono">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/80 animate-pulse" />
-                <span>{t.brandTagline}</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span>Statutory Civic Core • 2026 Gazettes Verified</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right Side: Liquid Glass Controls */}
+        {/* Right Side: Settings & Account Information Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Ward Selector with Geolocation Auto-Detect Button */}
           <div className="flex items-center gap-1">
@@ -132,7 +143,7 @@ export const WardHUD: React.FC<WardHUDProps> = ({
               <select
                 value={selectedWardId || currentWard.ward_id}
                 onChange={(e) => onSelectWard(Number(e.target.value))}
-                className="bg-transparent text-slate-800 dark:text-zinc-200 font-medium focus:outline-none cursor-pointer text-xs pr-4 appearance-none max-w-[130px] sm:max-w-[200px] truncate"
+                className="bg-transparent text-slate-800 dark:text-zinc-200 font-medium focus:outline-none cursor-pointer text-xs pr-4 appearance-none max-w-[120px] sm:max-w-[180px] truncate"
               >
                 {wards.map((w) => (
                   <option
@@ -207,7 +218,7 @@ export const WardHUD: React.FC<WardHUDProps> = ({
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={onOpenCommandPalette}
-            className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl liquid-glass-pill text-xs text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white transition-all cursor-pointer"
+            className="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl liquid-glass-pill text-xs text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white transition-all cursor-pointer"
             title="Press Cmd+K or Ctrl+K to search"
           >
             <Command className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
@@ -215,6 +226,40 @@ export const WardHUD: React.FC<WardHUDProps> = ({
             <kbd className="px-1 py-0.2 text-[8px] font-mono bg-black/5 dark:bg-black/40 text-slate-500 dark:text-zinc-400 rounded border border-black/10 dark:border-white/10">
               ⌘K
             </kbd>
+          </motion.button>
+
+          {/* ⚙️ Preserved Settings Button (Professional Interface) */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={onOpenSettings}
+            className="p-2 rounded-xl liquid-glass-pill text-slate-700 dark:text-zinc-300 hover:text-emerald-400 hover:border-emerald-500/40 transition-all cursor-pointer flex items-center justify-center"
+            title="System Preferences & AI Settings"
+            aria-label="Open settings"
+          >
+            <Sliders className="w-3.5 h-3.5" />
+          </motion.button>
+
+          {/* 👤 Preserved Account Information at the Top Right */}
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={onOpenAccount}
+            className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-full liquid-glass-pill border border-emerald-500/30 text-xs font-mono text-slate-800 dark:text-zinc-200 hover:border-emerald-500/60 transition-all cursor-pointer group"
+            title="Citizen Identity & Municipal Account Details"
+          >
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-slate-950 font-bold text-[10px] flex items-center justify-center shrink-0">
+              CP
+            </div>
+            <div className="text-left hidden sm:block">
+              <div className="text-[10px] font-bold text-slate-900 dark:text-white flex items-center gap-1 leading-tight">
+                <span>Citizen #4028</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              </div>
+              <div className="text-[8px] text-slate-500 dark:text-zinc-400 leading-none">
+                Ward 04 Verified
+              </div>
+            </div>
           </motion.button>
 
           {/* Ward Admin Mode Switcher */}
