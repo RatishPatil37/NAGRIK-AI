@@ -16,13 +16,36 @@ OUT_OF_SCOPE_PATTERNS = [
     r"\b(solve 2\+2|calculus derivative|quantum physics|write a poem about love)\b",
 ]
 
+# Adversarial prompt injection & jailbreak patterns
+JAILBREAK_PATTERNS = [
+    r"(ignore\s+(all\s+)?(previous|prior|above)\s+instructions)",
+    r"(disregard\s+(all\s+)?(previous|prior|above)\s+instructions)",
+    r"(forget\s+(all\s+)?(previous|prior|above)\s+instructions)",
+    r"(print|reveal|output|display|show)\s+(your\s+)?(system\s+prompt|initial\s+instructions|system\s+instructions)",
+    r"(you\s+are\s+now\s+(in\s+)?(dan|jailbreak|developer|unrestricted)\s+mode)",
+    r"(do\s+anything\s+now|bypass\s+safety\s+filters|simulate\s+a\s+(bash|linux)\s+terminal)",
+]
+
 COMPILED_OOS_REGEX = re.compile("|".join(OUT_OF_SCOPE_PATTERNS), re.IGNORECASE)
+COMPILED_JAILBREAK_REGEX = re.compile("|".join(JAILBREAK_PATTERNS), re.IGNORECASE)
 
 
 def check_scope_gate(query: str) -> Optional[Dict]:
-    """Checks if query is clearly outside municipal scope.
+    """Checks if query is adversarial jailbreak or clearly outside municipal scope.
     Returns polite municipal guidance payload if out of scope, else None.
     """
+    if COMPILED_JAILBREAK_REGEX.search(query):
+        return {
+            "in_scope": False,
+            "title": "Municipal Security Guard",
+            "message": (
+                "Namaste! **Nagrik AI** operates exclusively as an authoritative municipal knowledge assistant. "
+                "System instructions, model directives, and operational security boundaries cannot be altered or disclosed. "
+                "How may I assist you with official municipal bylaws, tax payments, or civic grievances?"
+            ),
+            "sources": [],
+        }
+
     if COMPILED_OOS_REGEX.search(query):
         return {
             "in_scope": False,

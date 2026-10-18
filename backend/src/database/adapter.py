@@ -58,6 +58,22 @@ class DatabaseAdapter:
         self._sqlite_path = Path(settings.SQLITE_DB_PATH)
         self._initialized = False
 
+    @property
+    def is_supabase(self) -> bool:
+        return self._use_supabase and self._supabase_client is not None
+
+    @property
+    def supabase(self):
+        return self._supabase_client
+
+    def _get_sqlite_conn(self) -> sqlite3.Connection:
+        """Returns SQLite connection with WAL mode and 5000ms busy timeout."""
+        conn = sqlite3.connect(self._sqlite_path, timeout=5.0)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA busy_timeout=5000;")
+        conn.row_factory = sqlite3.Row
+        return conn
+
     async def initialize(self):
         """Initializes database connection and seeds initial records if missing."""
         if self._initialized:
@@ -114,7 +130,7 @@ class DatabaseAdapter:
             self._initialized = True
 
     def _init_sqlite_schema(self):
-        with sqlite3.connect(self._sqlite_path) as conn:
+        with self._get_sqlite_conn() as conn:
             cursor = conn.cursor()
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS municipal_wards (
@@ -228,7 +244,7 @@ class DatabaseAdapter:
 
         def _get():
             self._ensure_sqlite_ready()
-            with sqlite3.connect(self._sqlite_path) as conn:
+            with self._get_sqlite_conn() as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
                 cursor.execute("SELECT * FROM municipal_wards ORDER BY ward_id")
@@ -243,7 +259,7 @@ class DatabaseAdapter:
 
         def _get():
             self._ensure_sqlite_ready()
-            with sqlite3.connect(self._sqlite_path) as conn:
+            with self._get_sqlite_conn() as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
                 cursor.execute("SELECT * FROM municipal_wards WHERE ward_id = ?", (ward_id,))
@@ -265,7 +281,7 @@ class DatabaseAdapter:
 
         def _insert():
             self._ensure_sqlite_ready()
-            with sqlite3.connect(self._sqlite_path) as conn:
+            with self._get_sqlite_conn() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                 INSERT INTO grievances (
@@ -294,7 +310,7 @@ class DatabaseAdapter:
 
         def _get():
             self._ensure_sqlite_ready()
-            with sqlite3.connect(self._sqlite_path) as conn:
+            with self._get_sqlite_conn() as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
                 cursor.execute("SELECT * FROM grievances WHERE ticket_id = ?", (ticket_id,))
@@ -321,7 +337,7 @@ class DatabaseAdapter:
 
         def _list():
             self._ensure_sqlite_ready()
-            with sqlite3.connect(self._sqlite_path) as conn:
+            with self._get_sqlite_conn() as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
                 if ward_id is not None:
@@ -366,7 +382,7 @@ class DatabaseAdapter:
 
         def _insert():
             self._ensure_sqlite_ready()
-            with sqlite3.connect(self._sqlite_path) as conn:
+            with self._get_sqlite_conn() as conn:
                 conn.cursor().execute(
                     "INSERT INTO conversations (id, user_id, title, ward_id, language_code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
                     (conv_id, user_id, title, ward_id, language_code, now, now)
@@ -407,7 +423,7 @@ class DatabaseAdapter:
 
         def _insert():
             self._ensure_sqlite_ready()
-            with sqlite3.connect(self._sqlite_path) as conn:
+            with self._get_sqlite_conn() as conn:
                 conn.cursor().execute(
                     "INSERT INTO messages (id, conversation_id, role, content, citations, metrics, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
                     (msg_id, conversation_id, role, content, citations_json, metrics_json, now)
@@ -428,7 +444,7 @@ class DatabaseAdapter:
 
         def _get():
             self._ensure_sqlite_ready()
-            with sqlite3.connect(self._sqlite_path) as conn:
+            with self._get_sqlite_conn() as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
                 cursor.execute(

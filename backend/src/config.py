@@ -94,8 +94,8 @@ class Settings(BaseSettings):
     LANGFUSE_HOST: str = "https://cloud.langfuse.com"
 
     # Render Free-Tier Survival Limits (512MB RAM Ceiling)
-    MAX_UPLOAD_SIZE_MB: int = 20
-    RATE_LIMIT_ANON_RPM: int = 10
+    MAX_UPLOAD_SIZE_MB: int = 10
+    RATE_LIMIT_ANON_RPM: int = 15
     RATE_LIMIT_AUTH_RPM: int = 30
     RATE_LIMIT_MAX_TRACKED_IPS: int = 10000
     RATE_LIMIT_WINDOW_SECONDS: int = 60

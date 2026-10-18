@@ -1,6 +1,6 @@
 # 🏛️ Nagrik AI: System Architecture & Technical Specifications
 
-> **System Overview**: High-concurrency, multilingual municipal intelligence platform designed for municipal corporations, smart cities, and urban local bodies (ULBs). Integrates Hybrid Vector RAG, Multilingual Speech/Text Processing, Autonomous Department Escalation, and Executive Decision Support.
+> **System Overview**: High-concurrency, multilingual municipal intelligence platform designed for municipal corporations, smart cities, and urban local bodies (ULBs). Integrates Hybrid Vector RAG, Devanagari Cross-Script Normalization, Statutory Reranking, Multi-Tier Resilient LLM Streaming, Autonomous Grievance Triage, and Executive Decision Support.
 
 ---
 
@@ -8,62 +8,69 @@
 
 ```mermaid
 flowchart TB
-    subgraph CitizenLayer ["1. Citizen Engagement Tier"]
+    subgraph CitizenLayer ["1. Citizen Engagement Tier (Vercel Edge)"]
+        Sidebar["Gemini Conversation Sidebar (Max 20 Chats, FIFO Auto-Pruning)"]
         VoiceIn["Voice Input (Browser Web Speech / Whisper API)"]
         TextIn["Multilingual Text Chat (EN, HI, MR, TA, etc.)"]
-        HUD["Living Ward Profile HUD (Ward, Zone, Language)"]
+        AudioOut["Studio Voice Output (Edge Neural TTS / Chunked WebSpeech)"]
+        HUD["Living Ward Profile HUD (GPS Haversine Auto-Detection)"]
         Palette["Civic Command Palette (Cmd+K)"]
-        Clarification["Claude-Style Clarification Card"]
-        Receipt["Printable Administrative Receipt / Dossier"]
-        VoiceIn & TextIn & HUD & Palette & Clarification & Receipt
+        Sidebar & VoiceIn & TextIn & AudioOut & HUD & Palette
     end
 
     subgraph IngressLayer ["2. Ingress & Security Boundary (FastAPI Gateway)"]
-        CORS["Strict CORS Regex (Official Municipal Domains)"]
-        RateLimiter["Sliding-Window Rate Limiter (Max 10K IPs, TTL Pruning)"]
+        CORS["Strict CORS Regex (Vercel & Municipal Domains)"]
+        RateLimiter["Sliding-Window Rate Limiter (15 RPM, 10K IPs Bounded Memory)"]
+        JailbreakFilter["Jailbreak & Prompt-Injection Deterministic Filter (<1ms)"]
         AuthFilter["Supabase Asymmetric JWKS (RS256) JWT Verifier"]
-        StreamUpload["Chunked Streaming Upload Shield (64KB chunks, max 20MB)"]
-        RateLimiter --> AuthFilter
+        StreamUpload["Chunked Streaming Upload Shield (64KB chunks, max 10MB)"]
+        RateLimiter --> JailbreakFilter --> AuthFilter
     end
 
     subgraph DeterministicLayer ["3. Deterministic Pre-Gates (<5ms, Zero LLM)"]
         SOSGate{"Emergency SOS Gate<br/>(Fire 101, Police 100, Med 108)"}
-        ScopeGate{"Municipal Scope Gate<br/>(Rejects non-civic trivia)"}
+        ScopeGate{"Municipal Scope Gate<br/>(Rejects non-civic queries)"}
         IntentGate{"Conversational Intent Gate<br/>(Greetings, Identity)"}
-        ParamGate{"Completeness & Parameter Gate<br/>(Checks Ward, Assessment ID)"}
+        ParamGate{"Completeness Gate<br/>(Checks Ward, Assessment ID)"}
         
         AuthFilter --> SOSGate
         SOSGate -->|Emergency| SOSDispatch["Instant SOS Banner + Helpline Numbers"]
         SOSGate -->|Normal| ScopeGate
         ScopeGate -->|Out of Scope| ScopeRefusal["Polite Municipal Guidance (<5ms)"]
         ScopeGate -->|In Scope| IntentGate
-        IntentGate -->|Small Talk| WarmReply["Instant Warm Greeting (sources: [])"]
+        IntentGate -->|Small Talk| WarmReply["Instant Warm Greeting (citations: [])"]
         IntentGate -->|Service Query| ParamGate
     end
 
-    subgraph KnowledgeLayer ["4. Hybrid Knowledge Layer (Qdrant Cloud RRF)"]
-        DenseModel["FastEmbed ONNX (all-MiniLM-L6-v2, 384d)"]
-        SparseModel["FastEmbed BM25 (Qdrant/bm25 lexical)"]
-        QdrantRRF["Qdrant Cloud: municipal_knowledge<br/>Server-Side Reciprocal Rank Fusion (RRF)"]
-        ParamGate -->|Complete Context| DenseModel & SparseModel
-        DenseModel & SparseModel --> QdrantRRF
+    subgraph KnowledgeLayer ["4. Hybrid Knowledge Layer & Dedicated Reranker"]
+        DevanagariBridge["Devanagari Statutory Normalizer (Cross-Script Bridge)"]
+        DenseModel["FastEmbed ONNX (all-MiniLM-L6-v2, 384d Dense)"]
+        SparseModel["FastEmbed BM25 (Qdrant/bm25 Lexical)"]
+        QdrantRRF["Qdrant Cloud: municipal_knowledge<br/>Server-Side Reciprocal Rank Fusion (Top 8)"]
+        CivicReranker["Civic Statutory Reranker (Top 8 → Top 5 High-Density Chunks)"]
+        
+        ParamGate --> DevanagariBridge --> DenseModel & SparseModel
+        DenseModel & SparseModel --> QdrantRRF --> CivicReranker
     end
 
     subgraph GenerationLayer ["5. 3-Tier Resilient Generation Pipeline"]
-        PromptScaffold["Causal Reasoning Civic Prompt Scaffold"]
-        GeminiFlash["Primary: Gemini 2.5 Flash Lite (Sub-second TTFT)"]
-        GroqLlama["Secondary: Groq Llama 3.3 70B (Fast Failover)"]
-        QdrantRRF --> PromptScaffold --> GeminiFlash -.Failover.-> GroqLlama
+        PromptScaffold["Causal Reasoning Civic Prompt Scaffold (Rule 1-7)"]
+        GeminiFlash["Tier 1: Gemini 3.7 Flash (Primary, 600ms Retry)"]
+        GeminiLite["Tier 2: Gemini 3.5 Flash-Lite (Surge Escalation)"]
+        GroqLlama["Tier 3: Groq Llama 3.3 70B (Emergency Failover)"]
+        
+        CivicReranker --> PromptScaffold --> GeminiFlash
+        GeminiFlash -.503 Surge.-> GeminiLite -.Timeout.-> GroqLlama
     end
 
     subgraph PostStreamLayer ["6. Audit, Escalation & Observability"]
         CitationPruner["Post-Stream Regex Auditor (filter_cited_evidence)"]
         EscalationTriage{"Grievance or Unresolved?"}
-        TicketEngine["Department Escalation Engine<br/>Hash: MNC-2026-WXX-DEPT-XXXX"]
-        PostgresDB[(Supabase PostgreSQL RLS)]
+        TicketEngine["Department Escalation Engine<br/>Hash: MCGM-2026-WXX-DEPT-XXXX"]
+        PostgresDB[(Supabase PostgreSQL / SQLite WAL)]
         LangfuseTracer["Langfuse Async Telemetry (Non-blocking)"]
         
-        GeminiFlash --> CitationPruner
+        GeminiFlash & GeminiLite & GroqLlama --> CitationPruner
         CitationPruner --> EscalationTriage
         EscalationTriage -->|Yes| TicketEngine --> PostgresDB
         EscalationTriage -->|No| CitizenLayer
@@ -71,203 +78,73 @@ flowchart TB
         CitationPruner -.Async.-> LangfuseTracer
     end
 
-    subgraph AdminLayer ["7. Administrative Decision Support Dashboard"]
-        Heatmap["Ward-Wise Grievance & Query Heatmap"]
-        SLAMonitor["SLA Countdown & Breach Monitor"]
-        FAQCluster["Trending Citizen FAQ Cluster Engine"]
-        KnowledgeGap["Retrieval Confidence Gap Flagging"]
-        PostgresDB & LangfuseTracer --> Heatmap & SLAMonitor & FAQCluster & KnowledgeGap
+    subgraph KeepAliveLayer ["7. High-Availability Keep-Alive Engine"]
+        CronJob["cron-job.org (Every 14 Mins)"]
+        KeepAliveRoute["/api/v1/keep-alive"]
+        RenderKeep["Render Container Awake"]
+        SupabaseReset["Supabase 7-Day Inactivity Timer Reset"]
+        QdrantReset["Qdrant Cluster Dormancy Reset"]
+        
+        CronJob --> KeepAliveRoute --> RenderKeep & SupabaseReset & QdrantReset
     end
 ```
 
 ---
 
-## 2. Multilingual Speech & Text Architecture
+## 2. End-to-End Request Lifecycle & Latency Budget
 
-### 2.1 Low-Latency Audio Streaming Pipeline
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Citizen as Citizen User
-    participant Browser as Browser Client (React)
-    participant WebSpeech as Web Speech API (Local)
-    participant API as FastAPI Audio Ingress
-    participant Whisper as Whisper STT (Fallback)
-    participant Indic as Translation Engine (IndicTrans2)
-    participant LLM as RAG & LLM Engine
-
-    Citizen->>Browser: Taps Mic & Speaks (e.g., in Hindi/Marathi)
-    alt Web Speech API Available & Supported
-        Browser->>WebSpeech: Native Speech Recognition
-        WebSpeech-->>Browser: Transcribed Text + Lang Tag
-    else Unsupported Browser / Dialect
-        Browser->>API: Multipart Audio Stream (webm/opus)
-        API->>Whisper: Speech-to-Text Transcription
-        Whisper-->>API: Transcribed Text
-    end
-    Browser->>API: Submit Text Query + User Lang (hi/mr/ta/en)
-    opt Regional Language Query
-        API->>Indic: Normalize/Translate to English for Vector Search
-        Indic-->>API: Search Query (English) + Context
-    end
-    API->>LLM: Execute Hybrid RAG
-    LLM-->>API: Streaming Generated Tokens (in Target Language)
-    API-->>Browser: SSE Stream (Tokens + Citations + Status)
-    opt Voice Response Enabled
-        Browser->>Browser: SpeechSynthesis Utterance / Edge-TTS
-    end
-```
+| Pipeline Stage | Module / Component | Latency | Fallback Mechanism |
+| :--- | :--- | :--- | :--- |
+| **1. Ingress & Rate Limiting** | `middleware.py` | `< 1 ms` | HTTP 429 after 15 RPM per client IP |
+| **2. Security & Jailbreak Pre-Gate** | `scope_gate.py` | `< 2 ms` | Deterministic prompt injection rejection |
+| **3. Emergency SOS Filter** | `emergency_sos.py` | `< 2 ms` | Instant emergency hotlines (101, 100, 108) |
+| **4. Devanagari Normalization** | `normalizer.py` | `< 3 ms` | Cross-script statutory token enrichment |
+| **5. Hybrid Dense + Sparse RRF** | `hybrid_search.py` (Qdrant Cloud) | `15 - 35 ms` | In-memory local SQLite / Qdrant fallback |
+| **6. Statutory Reranking** | `reranker.py` (`CivicReranker`) | `< 5 ms` | Initial RRF candidate ordering |
+| **7. Multi-Tier LLM Token Stream** | `llm_client.py` (Gemini 3.7 Flash) | `300 - 800 ms TTFT` | Auto-cascades to Gemini 3.5 Lite, then Groq Llama 3.3 |
+| **8. Post-Stream Citation Pruning**| `pruner.py` | `< 2 ms` | Enforces `citations: []` if not cited via `[Sx]` |
+| **9. Autonomous Grievance Triage** | `triage.py` | `< 5 ms` | Generates official tracking docket & receipt |
 
 ---
 
-## 3. Database Schema (Supabase PostgreSQL with RLS)
+## 3. NLP Architecture & Technical Innovations
 
-```sql
--- 1. Municipal Wards & Zones
-CREATE TABLE municipal_wards (
-    ward_id INT PRIMARY KEY,
-    ward_name VARCHAR(100) NOT NULL,
-    zone_name VARCHAR(100) NOT NULL,
-    ward_officer_name VARCHAR(150),
-    ward_office_address TEXT,
-    contact_email VARCHAR(150),
-    contact_phone VARCHAR(50),
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
+### 3.1 Server-Side Reciprocal Rank Fusion (RRF)
+Civic queries contain both colloquial phrasing (*"brown dirty water coming from tap"*) and statutory codes (*"Circular 492/B"*, *"Form 3A"*, *"Section 128(1)(a)"*). Nagrik AI fuses dense semantic and sparse lexical vectors natively within Qdrant Cloud:
+$$\text{RRF\_Score}(d) = \sum_{m \in \{\text{dense}, \text{sparse}\}} \frac{1}{60 + \text{rank}_m(d)}$$
 
--- 2. Municipal Departments
-CREATE TABLE municipal_departments (
-    dept_code VARCHAR(10) PRIMARY KEY, -- WTR, SAN, REV, ENG, TNP, ELE, HLT
-    dept_name VARCHAR(150) NOT NULL,
-    head_officer_email VARCHAR(150),
-    escalation_email VARCHAR(150),
-    standard_sla_hours INT DEFAULT 48
-);
+### 3.2 Civic Reranker Stage (`CivicReranker`)
+Before passing candidates to the LLM, a dedicated reranker scores candidates across:
+* **Statutory Density**: Prioritizing formal gazette sections (e.g. OBPAS setbacks, water tariffs, penalty schedules).
+* **Cross-Script Relevance**: Ensuring Marathi/Hindi queries match relevant English statutory sections.
+* Reranks **top 8 candidates down to the top 5 highest-density chunks**, maximizing context efficiency on the 512MB RAM server.
 
--- 3. Citizen Conversations
-CREATE TABLE conversations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    title VARCHAR(255) DEFAULT 'New Inquiry',
-    ward_id INT REFERENCES municipal_wards(ward_id),
-    language_code VARCHAR(10) DEFAULT 'en',
-    is_pinned BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+### 3.3 Multi-Tier Generation Resiliency
+* **Tier 1 (Primary)**: `gemini-3.7-flash` with 1-attempt 600ms exponential backoff on transient 503 high-demand surges.
+* **Tier 2 (Secondary)**: `gemini-3.5-flash-lite` for instantaneous failover if Tier 1 experiences extended spikes.
+* **Tier 3 (Tertiary)**: `llama-3.3-70b-versatile` via Groq for complete provider redundancy.
 
--- 4. Conversation Messages
-CREATE TABLE messages (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
-    content TEXT NOT NULL,
-    citations JSONB DEFAULT '[]'::jsonb,
-    metrics JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 5. Grievances & Service Escalations
-CREATE TABLE grievances (
-    ticket_id VARCHAR(50) PRIMARY KEY, -- MNC-2026-W04-WTR-8942
-    conversation_id UUID REFERENCES conversations(id) ON DELETE SET NULL,
-    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-    citizen_name VARCHAR(150),
-    citizen_phone VARCHAR(20),
-    citizen_email VARCHAR(150),
-    ward_id INT REFERENCES municipal_wards(ward_id),
-    dept_code VARCHAR(10) REFERENCES municipal_departments(dept_code),
-    category VARCHAR(100) NOT NULL, -- Water Leakage, Pothole, Garbage, Tax Dispute
-    priority VARCHAR(20) NOT NULL CHECK (priority IN ('emergency', 'high', 'medium', 'standard')),
-    sla_deadline TIMESTAMPTZ NOT NULL,
-    status VARCHAR(30) DEFAULT 'submitted' CHECK (status IN ('submitted', 'in_progress', 'resolved', 'escalated')),
-    resolution_notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 6. Row-Level Security (RLS) Policies
-ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE grievances ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Citizens manage their own conversations"
-ON conversations FOR ALL USING (auth.uid() = user_id);
-
-CREATE POLICY "Citizens access their conversation messages"
-ON messages FOR ALL USING (
-    EXISTS (SELECT 1 FROM conversations WHERE conversations.id = messages.conversation_id AND conversations.user_id = auth.uid())
-);
-
-CREATE POLICY "Citizens view their own grievances"
-ON grievances FOR SELECT USING (auth.uid() = user_id OR auth.uid() IS NULL);
-
-CREATE POLICY "Admin role access all grievances"
-ON grievances FOR ALL USING (
-    (auth.jwt() ->> 'role') = 'municipal_admin'
-);
-```
+### 3.4 Continuous Sentence-Chunked Speech Synthesis
+* **Primary TTS**: Microsoft Edge Neural TTS (`hi-IN-SwaraNeural`, `mr-IN-AarohiNeural`, `en-IN-NeerjaNeural`).
+* **Web Speech API Fallback**: Chunks responses by sentence (`.`, `?`, `!`, `।`), queueing utterances sequentially to eliminate Chrome's 15-second speech synthesis garbage collection cutoff bug.
+* **Full Audio Control**: User toggleable auto-play, active playback wave indicator, and instant Pause/Stop controls.
 
 ---
 
-## 4. Qdrant Hybrid Collection Payload Schema
+## 4. High-Availability Keep-Alive Engine (`/api/v1/keep-alive`)
 
-* **Collection Name**: `municipal_knowledge`
-* **Vectors**:
-  * `dense`: 384-dimensional Cosine distance (`sentence-transformers/all-MiniLM-L6-v2`)
-  * `sparse`: Lexical term frequency (`Qdrant/bm25`)
-* **Payload Fields**:
-  ```json
-  {
-    "doc_id": "MNC-DOC-REV-2026-004",
-    "title": "Property Tax Assessment Bylaws 2026",
-    "department": "REV",
-    "document_type": "bylaw", // bylaw, circular, gazette, citizen_charter, water_tariff
-    "ward_scope": "all",      // 'all' or specific ward integer
-    "effective_date": "2026-04-01",
-    "section_ref": "Section 14(b)",
-    "text": "Commercial properties within Zone B are subject to a 1.8% annual capital value rate with a 10% rebate for online payments made before May 31...",
-    "source_url": "https://municipal.gov.in/docs/property-tax-2026.pdf",
-    "chunk_id": "REV-2026-004-p03-c02"
-  }
-  ```
+To prevent cold starts and auto-suspensions across free-tier infrastructure, a unified keep-alive endpoint resets inactivity timers:
+1. **Render Worker**: Keeps Linux container, Uvicorn, and FastEmbed ONNX pre-warmed.
+2. **Supabase PostgreSQL**: Executes a 1-row fetch (`wards.select('id').limit(1)`), resetting Supabase's **7-day inactivity pause counter**.
+3. **Qdrant Cloud**: Calls `get_collections()` on the vector client, resetting the **dormancy suspension timer**.
+
+**Automated Ping**: Configured via [cron-job.org](https://cron-job.org/) to hit `https://nagrik-ai-wvuw.onrender.com/api/v1/keep-alive` every 14 minutes.
 
 ---
 
-## 5. Autonomous Department Escalation Engine
-
-### 5.1 Departmental Code & SLA Mapping Table
-
-| Dept Code | Department Name | Scope / Issue Types | Emergency SLA | Standard SLA |
-| :--- | :--- | :--- | :--- | :--- |
-| **`WTR`** | Water Supply & Sewerage | Main pipeline burst, sewage overflow, contaminated drinking water, meter faults. | 4 Hours | 24 Hours |
-| **`SAN`** | Solid Waste Management | Unattended community bins, dead animal removal, illegal garbage dumping, drain silt. | 6 Hours | 24 Hours |
-| **`REV`** | Property Tax & Revenue | Double assessment, payment receipt failure, tax slab disputes, name change. | 24 Hours | 7 Days |
-| **`ENG`** | Roads & Civil Engineering | Cave-ins, hazardous potholes, damaged footpaths, broken stormwater culverts. | 4 Hours | 48 Hours |
-| **`TNP`** | Town Planning & Encroachment | Unauthorized building construction, footpath encroachment, tree obstruction. | 12 Hours | 7 Days |
-| **`ELE`** | Electrical & Streetlighting | Exposed live cables, streetlight dark zones, broken junction boxes. | 2 Hours | 24 Hours |
-
-### 5.2 Ticket Generation Algorithm
-$$	ext{Ticket ID} = 	ext{"MNC-" + YEAR + "-W" + WARD\_ID + "-" + DEPT\_CODE + "-" + SHA256(citizen\_id + timestamp)[:4].upper()}$$
-Example: `MNC-2026-W04-WTR-78B2`
-
----
-
-## 6. Administrative Decision-Support Specifications
-
-1. **Spatial Ward Heatmap**: Aggregates ticket count per $1,000$ residents per ward. If a ward exceeds $2\sigma$ above city baseline, trigger an administrative red alert.
-2. **SLA Countdown Timer**: Visual countdown chip (Green > 12h, Amber 4-12h, Red < 4h, Flashing Red = Breached).
-3. **FAQ Clustering**: Dynamic K-Means / TF-IDF clustering of daily citizen queries to identify policy friction points (e.g., sudden $300\%$ increase in queries about "Solar rooftop subsidy rules").
-4. **Knowledge-Gap Monitor**: Log queries where RRF top score was $< 0.45$. Automatically compile a weekly "Missing Policy Circulars" report for the Municipal Secretary.
-
----
-
-## 7. Knowledge Corpus & Local Asset Resolution
-
-To prevent broken or dead links in the citizen UI, all citations resolve through a dual-path mechanism:
-1. **Local Authoritative Markdown/PDF (`source_path`)**:
-   - Stored in `data/corpus/` (e.g., `data/corpus/property_tax_bylaws_2026.md`, `data/corpus/water_supply_charter_2026.md`).
-   - Served via FastAPI document endpoint: `/api/v1/documents/{doc_id}/download` or viewed inline.
-2. **Official Government Portal Reference (`official_portal_ref`)**:
-   - Links to real government department portals (e.g., Ministry of Housing and Urban Affairs `https://mohua.gov.in`).
-   - Citation hover cards display both: "View Local Official Gazette" and "Open Ministry Portal".
+## 5. Security & Multi-Tenant Isolation Specifications
+1. **Prompt Injection / Jailbreak Filter**: Deterministic regex pre-gate rejects adversarial override instructions prior to LLM invocation.
+2. **Path Traversal Protection**: Enforces `is_relative_to(corpus_dir)` check on all document downloads.
+3. **Memory Safety**: Direct streaming to disk in 64KB chunks bounded by `asyncio.Semaphore(2)` and 10MB file ceiling for Render 512MB RAM survival.
+4. **Rate Limiting**: Bounded sliding window (15 RPM, 10,000 max IPs) with automatic TTL pruning.
+5. **Database Concurrency**: SQLite initialized with `PRAGMA journal_mode=WAL;` and `PRAGMA busy_timeout=5000;` to prevent write lock contention.

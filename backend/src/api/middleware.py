@@ -63,8 +63,8 @@ rate_limiter = SlidingWindowRateLimiter(
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        # Exclude static assets or health checks
-        if request.url.path in ["/health", "/", "/docs", "/openapi.json", "/redoc"]:
+        # Exclude static assets, health checks, or cron keep-alive pings
+        if request.url.path in ["/health", "/", "/docs", "/openapi.json", "/redoc", "/api/v1/keep-alive", "/keep-alive"]:
             return await call_next(request)
 
         # Extract real client IP from X-Forwarded-For (set by Render/Vercel proxies).

@@ -68,11 +68,12 @@ async def synthesize_speech(req: SynthesizeRequest):
     """
     global _SARVAM_CIRCUIT_BROKEN
 
-    # Clean markdown, citation markers and truncate to concise audio length
-    clean_text = req.text.replace("[S1]", "").replace("[S2]", "").replace("[S3]", "").replace("[S4]", "")
-    for ch in ["*", "#", "`", "_", ">"]:
-        clean_text = clean_text.replace(ch, "")
-    clean_text = clean_text.strip()[:450]
+    # Clean markdown, bracketed citations, URLs, and normalize whitespace
+    import re
+    clean_text = re.sub(r'\[S\d+\]', '', req.text)
+    clean_text = re.sub(r'https?://\S+', '', clean_text)
+    clean_text = re.sub(r'[#*`_~>]', '', clean_text)
+    clean_text = re.sub(r'\s+', ' ', clean_text).strip()[:2000]
 
     if not clean_text:
         raise HTTPException(status_code=400, detail="Text cannot be empty.")
@@ -80,8 +81,8 @@ async def synthesize_speech(req: SynthesizeRequest):
     sarvam_key = (settings.SARVAM_API_KEY or "").strip()
     target_lang = SARVAM_LANG_MAP.get(req.language_code, SARVAM_LANG_MAP.get(req.language_code[:2], "hi-IN"))
 
-    # TIER 1: Sarvam AI Bulbul:v1
-    if sarvam_key and not _SARVAM_CIRCUIT_BROKEN:
+    # TIER 1: Sarvam AI Bulbul:v3 (only if text is under Sarvam's 500 char limit)
+    if sarvam_key and not _SARVAM_CIRCUIT_BROKEN and len(clean_text) <= 500:
         try:
             async with httpx.AsyncClient(timeout=4.0) as client:
                 res = await client.post(

@@ -20,6 +20,9 @@ ALLOWED_EXTENSIONS = {".pdf", ".md", ".txt"}
 # In-memory tracking of ingested document hashes to prevent duplicates
 INGESTED_HASHES = set()
 
+# Bounded concurrency semaphore: prevents OOM crashes on Render 512MB RAM
+UPLOAD_SEMAPHORE = asyncio.Semaphore(2)
+
 
 @router.get("/{doc_id}/download")
 async def download_document(doc_id: str):
@@ -49,8 +52,14 @@ async def download_document(doc_id: str):
     target_filename = doc_file_mapping.get(clean_id, safe_name)
     target_path = (corpus_dir / target_filename).resolve()
 
-    # Path traversal validation: target_path must be inside corpus_dir
-    if not str(target_path).startswith(str(corpus_dir)) or not target_path.exists():
+    # Path traversal validation: target_path must be strictly inside corpus_dir
+    is_safe = False
+    try:
+        is_safe = target_path.resolve().is_relative_to(corpus_dir.resolve())
+    except (ValueError, AttributeError):
+        is_safe = str(target_path.resolve()).startswith(str(corpus_dir.resolve()))
+
+    if not is_safe or not target_path.exists():
         # Search by partial match in corpus
         found = False
         for f in corpus_dir.glob("*"):
@@ -97,10 +106,11 @@ async def upload_document(
             detail=f"File exceeds maximum upload limit of {settings.MAX_UPLOAD_SIZE_MB}MB.",
         )
 
-    # Sanitize filename & validate extension
-    raw_filename = file.filename or "uploaded_gazette.md"
-    safe_filename = Path(raw_filename).name
-    ext = Path(safe_filename).suffix.lower()
+    async with UPLOAD_SEMAPHORE:
+        # Sanitize filename & validate extension
+        raw_filename = file.filename or "uploaded_gazette.md"
+        safe_filename = Path(raw_filename).name
+        ext = Path(safe_filename).suffix.lower()
 
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(

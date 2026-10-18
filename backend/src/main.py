@@ -120,11 +120,55 @@ async def health_check():
     }
 
 
+@app.get("/api/v1/keep-alive", tags=["Health & Status"])
+@app.get("/keep-alive", tags=["Health & Status"])
+async def keep_alive():
+    """All-in-One Keep-Alive endpoint optimized for cron-job.org.
+    Resets inactivity timers for Render (keeps worker awake),
+    Supabase (executes 1-row fetch to prevent 7-day auto-pause),
+    and Qdrant Cloud (pings vector cluster to prevent cluster dormancy).
+    """
+    import asyncio
+    import time
+    start = time.time()
+    results = {
+        "status": "alive",
+        "render": "online",
+        "supabase": "skipped",
+        "qdrant": "skipped",
+    }
+
+    # 1. Ping Supabase to reset 7-day pause timer
+    try:
+        if db_adapter.is_supabase and db_adapter.supabase:
+            await asyncio.to_thread(
+                lambda: db_adapter.supabase.table("wards").select("id").limit(1).execute()
+            )
+            results["supabase"] = "active"
+        else:
+            results["supabase"] = "local_sqlite_active"
+    except Exception as e:
+        results["supabase"] = f"error: {str(e)}"
+
+    # 2. Ping Qdrant Cloud to reset cluster suspension timer
+    try:
+        if hybrid_retriever.qdrant_client:
+            await asyncio.to_thread(hybrid_retriever.qdrant_client.get_collections)
+            results["qdrant"] = "active"
+    except Exception as e:
+        results["qdrant"] = f"error: {str(e)}"
+
+    results["latency_ms"] = round((time.time() - start) * 1000, 2)
+    return results
+
+
 @app.get("/", tags=["Root"])
 async def root():
     return {
         "message": "Welcome to Nagrik AI (नागरिक AI) Municipal Engine API Gateway.",
         "documentation": "/docs",
         "health": "/health",
+        "keep_alive": "/api/v1/keep-alive",
         "api_v1": "/api/v1",
     }
+
