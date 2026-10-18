@@ -54,7 +54,7 @@ export const AccountPopover: React.FC<AccountPopoverProps> = ({
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="w-8 h-8 sm:w-9 sm:h-9 rounded-full ring-2 ring-transparent hover:ring-amber-500/40 transition-all cursor-pointer flex items-center justify-center p-0.5 overflow-hidden"
+        className="w-8 h-8 sm:w-9 sm:h-9 rounded-full ring-2 ring-transparent hover:ring-slate-300 dark:hover:ring-white/20 transition-all cursor-pointer flex items-center justify-center p-0.5 overflow-hidden"
         title={`${user.name} (${user.email})`}
         aria-label="User Account Menu"
         aria-expanded={isOpen}
@@ -146,9 +146,9 @@ export const AccountPopover: React.FC<AccountPopoverProps> = ({
 
             <div className="h-[1px] bg-slate-100 dark:bg-white/[0.06]" />
 
-            {/* Development Mode Bottom Striped Banner (Exact Match to Screenshot 2) */}
-            <div className="px-4 py-2 bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-orange-500/10 border-t border-orange-500/10 flex items-center justify-center">
-              <span className="text-xs font-semibold text-orange-600 dark:text-orange-400 tracking-wide">
+            {/* Development Mode Bottom Banner */}
+            <div className="px-4 py-2 bg-slate-50 dark:bg-zinc-900 border-t border-slate-200/80 dark:border-white/[0.08] flex items-center justify-center">
+              <span className="text-[11px] font-mono font-medium text-slate-500 dark:text-zinc-400 tracking-wider uppercase">
                 Development mode
               </span>
             </div>

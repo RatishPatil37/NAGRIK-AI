@@ -28,28 +28,28 @@ const TESTIMONIALS = [
   {
     name: 'Ravi Kumar',
     role: 'Government Employee',
-    avatar: 'RK',
+    image: '/1.png',
     quote:
       'As a government employee, I often need to stay updated on new regulations and procedures. This application has been invaluable in providing accurate and timely information. The user-friendly interface and comprehensive coverage of laws and regulations have made it easier for me to perform my duties efficiently.',
   },
   {
     name: 'Aarti Sharma',
     role: 'Small Business Owner',
-    avatar: 'AS',
+    image: '/2.png',
     quote:
       'Running a small business comes with numerous legal and regulatory challenges. This application has simplified compliance by offering clear and accessible information on various business regulations. The guidance provided has helped me ensure that my business adheres to all legal requirements, which has saved me time and reduced the risk of non-compliance.',
   },
   {
     name: 'Rajesh Patel',
     role: 'College Student',
-    avatar: 'RP',
+    image: '/3.png',
     quote:
       'As a college student, I often need to understand my rights and responsibilities, especially when it comes to student-related issues. This application has been a great resource for learning about my rights and accessing relevant information quickly. The detailed explanations and examples have helped me make informed decisions and better understand my position in various situations.',
   },
   {
     name: 'Sneha Iyer',
     role: 'Social Activist',
-    avatar: 'SI',
+    image: '/4.png',
     quote:
       'In my work as a social activist, having access to accurate and detailed information on laws and regulations is crucial. This application has provided me with essential insights into legal frameworks and social justice issues. Its comprehensive resources have supported my advocacy efforts and enabled me to educate others effectively about their rights and legal options.',
   },
@@ -138,7 +138,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               title={theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
             >
               {theme === 'dark' ? (
-                <Sun className="w-4 h-4 text-amber-300" />
+                <Sun className="w-4 h-4 text-slate-200" />
               ) : (
                 <Moon className="w-4 h-4 text-slate-700" />
               )}
@@ -147,7 +147,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <button
               type="button"
               onClick={onStartExploring}
-              className="px-4 py-2 rounded-full bg-slate-950 dark:bg-white text-white dark:text-slate-950 text-xs sm:text-sm font-semibold hover:bg-slate-800 dark:hover:bg-zinc-200 transition-all cursor-pointer shadow-sm"
+              className="px-5 py-2 rounded-full bg-slate-950 dark:bg-white text-white dark:text-slate-950 text-xs sm:text-sm font-semibold hover:bg-slate-800 dark:hover:bg-zinc-200 transition-all cursor-pointer shadow-sm"
             >
               Get Started
             </button>
@@ -157,7 +157,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <button
                 type="button"
                 onClick={onOpenAccount}
-                className="w-8 h-8 rounded-full overflow-hidden border border-slate-200 dark:border-white/10 hover:ring-2 hover:ring-amber-500/40 transition-all cursor-pointer ml-1"
+                className="w-8 h-8 rounded-full overflow-hidden border border-slate-200 dark:border-white/10 hover:ring-2 hover:ring-slate-300 dark:hover:ring-white/20 transition-all cursor-pointer ml-1"
                 title={userProfile?.name ? `${userProfile.name} - Account Settings` : 'Account Settings'}
               >
                 <img
@@ -174,39 +174,38 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </header>
 
-      {/* Hero Section (Exact Match to Screenshot 4 - Clean, No Neon/No AI Slop) */}
-      <section className="pt-16 sm:pt-24 pb-14 px-4 sm:px-6 text-center max-w-5xl mx-auto">
+      {/* Hero Section (Clean, Authoritative, Editorial Typography - Zero Neon Slop) */}
+      <section className="pt-20 sm:pt-28 pb-16 px-4 sm:px-6 text-center max-w-5xl mx-auto">
         <div>
           {/* Main Headline */}
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-950 dark:text-white leading-[1.15] mb-4 font-display">
+          <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-slate-950 dark:text-white leading-[1.12] mb-6 font-display">
             Empowering Indian Citizens with <br className="hidden sm:inline" />
-            <span className="text-[#F97316] dark:text-[#FB923C]">AI-Generated </span>
-            <span className="text-[#10B981] dark:text-[#34D399]">Answers</span>
+            <span className="text-slate-900 dark:text-white">AI-Generated Answers</span>
           </h1>
 
           {/* Subtitle */}
-          <p className="text-slate-600 dark:text-zinc-400 text-sm sm:text-base max-w-2xl mx-auto mb-8 font-normal leading-relaxed">
+          <p className="text-base sm:text-lg md:text-xl text-slate-600 dark:text-zinc-400 max-w-2xl mx-auto mb-10 font-normal leading-relaxed">
             Nagrik AI - AI-Powered Insights on Laws, Rights, and Regulations in India
           </p>
 
-          {/* Primary CTA Button: Start Exploring for Free (Solid Orange Pill, No Glow Slop) */}
+          {/* Primary CTA Button: Clean, Solid High-Contrast Pill (No Glow / No Multi-Color Slop) */}
           <button
             type="button"
             onClick={onStartExploring}
-            className="px-8 py-3 rounded-full bg-[#F97316] hover:bg-[#EA580C] text-white font-bold text-sm sm:text-base transition-colors cursor-pointer shadow-sm inline-flex items-center gap-2"
+            className="px-8 py-3.5 rounded-full bg-slate-950 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-slate-950 font-semibold text-sm sm:text-base transition-all cursor-pointer shadow-md inline-flex items-center gap-2"
           >
             <span>Start Exploring for Free</span>
           </button>
         </div>
 
-        {/* 3 Pillar Feature Cards (Exact Match to Screenshot 4) */}
+        {/* 3 Pillar Feature Cards (Unified, Editorial Civic Quality) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 max-w-4xl mx-auto text-center">
           {/* Pillar 1: Trustworthy Information */}
-          <div className="p-6 rounded-xl bg-white dark:bg-[#11131C] border border-slate-200 dark:border-white/10 shadow-sm">
-            <div className="w-10 h-10 mx-auto mb-3 flex items-center justify-center text-[#F97316]">
+          <div className="p-7 rounded-2xl bg-white dark:bg-[#11131C] border border-slate-200/80 dark:border-white/[0.08] shadow-sm flex flex-col items-center">
+            <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-white/[0.05] flex items-center justify-center text-slate-800 dark:text-zinc-200 mb-4">
               <ShieldCheck className="w-6 h-6" />
             </div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">
+            <h3 className="text-base font-bold text-slate-950 dark:text-white mb-2">
               Trustworthy Information
             </h3>
             <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">
@@ -215,11 +214,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           {/* Pillar 2: Comprehensive Coverage */}
-          <div className="p-6 rounded-xl bg-white dark:bg-[#11131C] border border-slate-200 dark:border-white/10 shadow-sm">
-            <div className="w-10 h-10 mx-auto mb-3 flex items-center justify-center text-slate-500 dark:text-zinc-400">
+          <div className="p-7 rounded-2xl bg-white dark:bg-[#11131C] border border-slate-200/80 dark:border-white/[0.08] shadow-sm flex flex-col items-center">
+            <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-white/[0.05] flex items-center justify-center text-slate-800 dark:text-zinc-200 mb-4">
               <BookOpen className="w-6 h-6" />
             </div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">
+            <h3 className="text-base font-bold text-slate-950 dark:text-white mb-2">
               Comprehensive Coverage
             </h3>
             <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">
@@ -228,11 +227,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           {/* Pillar 3: Nationwide Reach */}
-          <div className="p-6 rounded-xl bg-white dark:bg-[#11131C] border border-slate-200 dark:border-white/10 shadow-sm">
-            <div className="w-10 h-10 mx-auto mb-3 flex items-center justify-center text-[#10B981]">
+          <div className="p-7 rounded-2xl bg-white dark:bg-[#11131C] border border-slate-200/80 dark:border-white/[0.08] shadow-sm flex flex-col items-center">
+            <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-white/[0.05] flex items-center justify-center text-slate-800 dark:text-zinc-200 mb-4">
               <Globe className="w-6 h-6" />
             </div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">
+            <h3 className="text-base font-bold text-slate-950 dark:text-white mb-2">
               Nationwide Reach
             </h3>
             <p className="text-xs text-slate-600 dark:text-zinc-400 leading-relaxed">
@@ -274,9 +273,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </p>
 
               <div className="flex items-center gap-3 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
-                <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold text-xs flex items-center justify-center shrink-0">
-                  {t.avatar}
-                </div>
+                <img
+                  src={t.image}
+                  alt={t.name}
+                  className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10 shrink-0"
+                />
                 <div className="min-w-0">
                   <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
                     {t.name}
@@ -292,7 +293,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* ========================================================
-          Nagrik Newsletter Section (Exact Match to User's Uploaded Image 2)
+          Nagrik Newsletter Section (Clean Monochrome, No Multi-Color AI Slop)
          ======================================================== */}
       <section id="newsletter" className="py-16 px-4 text-center border-t border-slate-200/80 dark:border-white/[0.06]">
         <div className="max-w-xl mx-auto">
@@ -307,24 +308,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 placeholder="Enter your email address..."
                 value={newsletterEmail}
                 onChange={(e) => setNewsletterEmail(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-full border border-slate-300 dark:border-white/20 bg-white dark:bg-black/30 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                className="w-full px-4 py-2.5 rounded-full border border-slate-300 dark:border-white/20 bg-white dark:bg-black/30 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-400"
                 autoFocus
               />
               <button
                 type="submit"
-                className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-[#F97316] hover:bg-[#EA580C] text-white text-xs sm:text-sm font-bold shrink-0"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-slate-950 hover:bg-slate-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-slate-950 text-xs sm:text-sm font-bold shrink-0 shadow-sm"
               >
                 {newsletterSubscribed ? 'Subscribed ✓' : 'Subscribe'}
               </button>
             </form>
           ) : (
-            <button
-              type="button"
-              onClick={() => setIsNewsletterOpen(true)}
-              className="px-8 py-3 rounded-full bg-[#F97316] hover:bg-[#EA580C] text-white font-bold text-sm transition-colors cursor-pointer shadow-sm"
-            >
-              Subscribe to Our Newsletter
-            </button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsNewsletterOpen(true)}
+                className="px-8 py-3 rounded-full bg-slate-950 hover:bg-slate-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-slate-950 font-bold text-sm transition-all cursor-pointer shadow-sm"
+              >
+                Subscribe to Our Newsletter
+              </button>
+              <a
+                href="https://nagrik-ai-newsletter.beehiiv.com/subscribe"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-white underline underline-offset-4 transition-colors"
+              >
+                Open in Beehiiv →
+              </a>
+            </div>
           )}
 
           {newsletterSubscribed && (

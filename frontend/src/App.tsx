@@ -186,7 +186,7 @@ export function App() {
     });
   }, []);
 
-  // Voice Recognition Handler with real-time interim transcription and error toasts
+  // Voice Recognition Handler with auto-submit on completion (Google Assistant style)
   const { isListening, startListening } = useVoiceRecognition(
     (transcript: string) => {
       setInputQuery(transcript);
@@ -195,10 +195,7 @@ export function App() {
     language,
     (errorMsg: string) => {
       setVoiceToast(errorMsg);
-      setTimeout(() => setVoiceToast(null), 6000);
-    },
-    (interimText: string) => {
-      setInputQuery(interimText);
+      setTimeout(() => setVoiceToast(null), 5000);
     }
   );
 
@@ -668,7 +665,7 @@ export function App() {
                     className="px-4 py-1.5 rounded-full bg-slate-950/95 dark:bg-white text-white dark:text-slate-950 text-xs font-bold backdrop-blur-md shadow-xl flex items-center gap-2 hover:scale-105 transition-all cursor-pointer border border-white/20"
                     title="Stop speaking"
                   >
-                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                     <span>Speaking response...</span>
                     <span className="px-1.5 py-0.5 rounded bg-red-500 text-white text-[10px] uppercase font-mono tracking-wider ml-1">
                       Stop ⏹
@@ -685,16 +682,16 @@ export function App() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 8 }}
-                  className="mb-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs flex items-center justify-between gap-2 shadow-lg backdrop-blur-md"
+                  className="mb-2 p-2.5 rounded-xl bg-slate-900/90 dark:bg-zinc-900/95 border border-slate-700 dark:border-white/20 text-slate-200 dark:text-zinc-200 text-xs flex items-center justify-between gap-2 shadow-lg backdrop-blur-md"
                 >
                   <div className="flex items-center gap-2">
-                    <MicOff className="w-4 h-4 text-amber-500 shrink-0" />
+                    <MicOff className="w-4 h-4 text-red-400 shrink-0" />
                     <span>{voiceToast}</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setVoiceToast(null)}
-                    className="p-1 text-amber-500 hover:text-amber-700 dark:hover:text-amber-200 cursor-pointer"
+                    className="p-1 text-slate-400 hover:text-white cursor-pointer"
                   >
                     ✕
                   </button>
@@ -764,7 +761,7 @@ export function App() {
                 }}
                 className={`p-2 rounded-xl transition-colors cursor-pointer ${
                   isSpeaking
-                    ? 'text-white bg-amber-500 animate-pulse border border-amber-400 shadow-md shadow-amber-500/20'
+                    ? 'text-white dark:text-slate-950 bg-slate-950 dark:bg-white animate-pulse border border-slate-700 dark:border-white/30 shadow-md'
                     : isTTSEnabled
                     ? 'text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.1] border border-slate-200 dark:border-white/20'
                     : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06]'

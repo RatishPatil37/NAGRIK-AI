@@ -683,9 +683,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
-          {/* Development Mode Bottom Banner (Exact Match to Screenshot 1) */}
-          <div className="px-6 py-2.5 bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-orange-500/10 border-t border-orange-500/10 flex items-center justify-between">
-            <span className="text-xs font-semibold text-orange-600 dark:text-orange-400 tracking-wide">
+          {/* Development Mode Bottom Banner */}
+          <div className="px-6 py-2.5 bg-slate-50 dark:bg-zinc-900/60 border-t border-slate-200/80 dark:border-white/[0.08] flex items-center justify-between">
+            <span className="text-[11px] font-mono font-medium text-slate-500 dark:text-zinc-400 tracking-wider uppercase">
               Development mode
             </span>
             <span className="text-[10px] font-mono text-slate-400 dark:text-zinc-500">

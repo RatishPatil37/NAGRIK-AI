@@ -97,8 +97,7 @@ export function resumeSpeaking() {
 export function useVoiceRecognition(
   onResult: (text: string) => void,
   lang: string = 'en-IN',
-  onErrorToast?: (msg: string) => void,
-  onInterim?: (text: string) => void
+  onErrorToast?: (msg: string) => void
 ) {
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,41 +117,39 @@ export function useVoiceRecognition(
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
       try {
-        recognitionRef.current.stop();
+        recognitionRef.current.abort();
       } catch (e) {}
+      recognitionRef.current = null;
     }
     setIsListening(false);
   }, []);
 
   const startListening = useCallback(() => {
-    // If already listening, clicking again toggles it off
-    if (isListening) {
+    // If currently listening, toggle off cleanly
+    if (recognitionRef.current) {
       stopListening();
-      return false;
+      return;
     }
 
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      const msg = 'Speech recognition is not supported in this browser. Please type your query or use Google Chrome / Microsoft Edge.';
+      const msg = 'Speech recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge.';
       setError(msg);
       if (onErrorToast) onErrorToast(msg);
-      return false;
+      return;
     }
 
     try {
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.abort();
-        } catch (e) {}
-      }
-
       const recognition = new SpeechRecognition();
       recognitionRef.current = recognition;
 
+      // Google Assistant auto-endpointing:
+      // continuous = false tells the browser to listen to one utterance,
+      // detect when the user finishes speaking, and fire onresult.
       recognition.continuous = false;
-      recognition.interimResults = true;
+      recognition.interimResults = false;
       recognition.maxAlternatives = 1;
       recognition.lang = lang;
 
@@ -162,87 +159,44 @@ export function useVoiceRecognition(
       };
 
       recognition.onresult = (event: any) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const trans = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += trans;
-          } else {
-            interimTranscript += trans;
-          }
+        if (!event.results || !event.results[0] || !event.results[0][0]) return;
+        const transcript = event.results[0][0].transcript;
+        if (transcript && transcript.trim()) {
+          onResult(transcript.trim());
         }
-
-        if (interimTranscript && onInterim) {
-          onInterim(interimTranscript);
-        }
-
-        if (finalTranscript && finalTranscript.trim()) {
-          onResult(finalTranscript.trim());
-          setIsListening(false);
-        }
+        setIsListening(false);
       };
 
       recognition.onerror = (err: any) => {
         console.warn('[WebSpeech] Recognition error:', err);
         setIsListening(false);
+        recognitionRef.current = null;
 
-        let userMsg = '';
         if (err.error === 'not-allowed' || err.error === 'service-not-allowed') {
-          userMsg = 'Microphone permission blocked. Please click the lock or camera icon in your browser URL bar and choose "Allow" for Microphone.';
-        } else if (err.error === 'no-speech') {
-          userMsg = 'No voice detected. Please speak closer to your microphone.';
-        } else if (err.error === 'network') {
-          userMsg = 'Voice recognition network error. Please check your internet connection.';
-        } else if (err.error !== 'aborted') {
-          userMsg = `Voice input error: ${err.error}`;
-        }
-
-        if (userMsg) {
+          const userMsg = 'Microphone access denied. Please click the permissions icon in your address bar to allow microphone access.';
           setError(userMsg);
           if (onErrorToast) onErrorToast(userMsg);
+        } else if (err.error !== 'no-speech' && err.error !== 'aborted') {
+          setError(`Voice input error: ${err.error}`);
+          if (onErrorToast) onErrorToast(`Voice input error: ${err.error}`);
         }
       };
 
       recognition.onend = () => {
         setIsListening(false);
+        recognitionRef.current = null;
       };
 
-      // Ensure microphone access before triggering speech recognition
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices
-          .getUserMedia({ audio: true })
-          .then((stream) => {
-            // Permission confirmed! Stop dummy tracks so SpeechRecognition has full microphone access
-            stream.getTracks().forEach((track) => track.stop());
-            try {
-              recognition.start();
-            } catch (e) {
-              console.warn('[WebSpeech] recognition.start error:', e);
-            }
-          })
-          .catch((err) => {
-            console.warn('[WebSpeech] getUserMedia error:', err);
-            const userMsg = 'Microphone permission blocked. Please click the lock icon in your address bar to allow microphone access.';
-            setError(userMsg);
-            if (onErrorToast) onErrorToast(userMsg);
-            setIsListening(false);
-          });
-      } else {
-        recognition.start();
-      }
-
-      return true;
+      recognition.start();
     } catch (e: any) {
       console.error('[WebSpeech] Failed to start recognition:', e);
       setIsListening(false);
+      recognitionRef.current = null;
       const msg = e.message || 'Could not start voice recognition';
       setError(msg);
       if (onErrorToast) onErrorToast(msg);
-      return false;
     }
-  }, [lang, onResult, isListening, stopListening, onErrorToast, onInterim]);
+  }, [lang, onResult, onErrorToast, stopListening]);
 
   return { isListening, error, startListening, stopListening };
 }
