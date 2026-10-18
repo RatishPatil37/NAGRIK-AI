@@ -8,7 +8,6 @@ import {
   User,
   RotateCcw,
   Bot,
-  CheckCircle2,
   MapPin,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,8 +21,9 @@ import { EscalationCard } from './components/chat/EscalationCard';
 import { ReceiptModal } from './components/chat/ReceiptModal';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { ConversationSidebar } from './components/chat/ConversationSidebar';
-import { SettingsModal } from './components/civic/SettingsModal';
-import { AccountModal } from './components/civic/AccountModal';
+import { LandingPage } from './components/landing/LandingPage';
+import { SettingsView } from './components/account/SettingsView';
+import { DEFAULT_USER_PROFILE, type UserProfile } from './components/account/AccountPopover';
 import {
   getStoredSessions,
   saveStoredSession,
@@ -47,16 +47,35 @@ import type {
 } from './types';
 
 export function App() {
+  const [activeView, setActiveView] = useState<'landing' | 'conversation' | 'dashboard' | 'settings'>('conversation');
   const [wards, setWards] = useState<MunicipalWard[]>([]);
   const [selectedWardId, setSelectedWardId] = useState<number | null>(4); // Default: Bandra West
   const [language, setLanguage] = useState<string>('en-IN');
-  const [isAdminMode, setIsAdminMode] = useState<boolean>(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [isDetectingWard, setIsDetectingWard] = useState<boolean>(false);
   const [wardNotification, setWardNotification] = useState<string | null>(null);
-  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-  const [isAccountOpen, setIsAccountOpen] = useState<boolean>(false);
+
+  // Dynamic User Profile (Takes any Google avatar URL or fallback)
+  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
+    const saved = localStorage.getItem('nagrik_user_profile');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse user profile', e);
+      }
+    }
+    return DEFAULT_USER_PROFILE;
+  });
+
+  const handleUpdateUserProfile = (updated: Partial<UserProfile>) => {
+    setUserProfile((prev) => {
+      const next = { ...prev, ...updated };
+      localStorage.setItem('nagrik_user_profile', JSON.stringify(next));
+      return next;
+    });
+  };
 
   // Localization Dictionary
   const t = getTranslation(language);
@@ -143,8 +162,10 @@ export function App() {
 
   // Auto-scroll chat to latest message
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isStreaming]);
+    if (activeView === 'conversation') {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isStreaming, activeView]);
 
   // Voice Recognition Handler
   const { isListening, startListening } = useVoiceRecognition(
@@ -159,8 +180,8 @@ export function App() {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-    const newConvId = 'conv_' + Math.random().toString(36).substring(2, 11);
-    setConversationId(newConvId);
+    const newId = 'conv_' + Math.random().toString(36).substring(2, 11);
+    setConversationId(newId);
     setMessages([
       {
         id: 'welcome',
@@ -169,6 +190,7 @@ export function App() {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ]);
+    setInputQuery('');
     setIsStreaming(false);
   };
 
@@ -181,12 +203,14 @@ export function App() {
     setLanguage(session.language);
     setMessages(session.messages);
     setIsStreaming(false);
+    setIsSidebarOpen(false);
+    setActiveView('conversation');
   };
 
-  const handleDeleteSession = (sessionId: string) => {
-    const updated = deleteStoredSession(sessionId);
+  const handleDeleteSession = (id: string) => {
+    const updated = deleteStoredSession(id);
     setStoredSessions(updated);
-    if (conversationId === sessionId) {
+    if (id === conversationId) {
       handleResetChat();
     }
   };
@@ -199,143 +223,127 @@ export function App() {
 
   const handleDetectWard = async () => {
     setIsDetectingWard(true);
+    setWardNotification(null);
     try {
-      const result = await detectClosestWard();
-      if (result) {
-        setSelectedWardId(result.wardId);
-        setWardNotification(`${result.wardName} (${result.distanceKm} km away)`);
-        setTimeout(() => setWardNotification(null), 4500);
+      const match = await detectClosestWard();
+      if (match) {
+        setSelectedWardId(match.wardId);
+        setWardNotification(match.wardName);
+        setTimeout(() => setWardNotification(null), 5000);
       }
     } catch (err: any) {
-      alert(`Could not detect location: ${err.message || 'Permission denied'}`);
+      alert(err.message || 'Geolocation error');
     } finally {
       setIsDetectingWard(false);
     }
   };
 
-  const handleClarificationSelect = (value: any, label: string) => {
-    handleSubmit(`Selected: ${label} (${value})`);
-  };
+  const handleSubmit = (overrideQuery?: string) => {
+    const query = (overrideQuery || inputQuery).trim();
+    if (!query || isStreaming) return;
 
-  const handleSubmit = async (overrideQuery?: string) => {
-    const query = overrideQuery || inputQuery;
-    if (!query.trim() || isStreaming) return;
-
-    const userMessageId = `user-${Date.now()}`;
-    const userMessage: ChatMessage = {
-      id: userMessageId,
-      role: 'user',
-      content: query,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    const assistantMessageId = `assistant-${Date.now()}`;
-    const assistantMessagePlaceholder: ChatMessage = {
-      id: assistantMessageId,
-      role: 'assistant',
-      content: '',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      statusText: 'Consulting 2026 Municipal Gazettes...',
-    };
-
-    const updatedMessagesWithUser = [...messages, userMessage, assistantMessagePlaceholder];
-    setMessages(updatedMessagesWithUser);
-    setInputQuery('');
-    setIsStreaming(true);
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
 
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    let fullAnswer = '';
-    let latestCitations: CitationItem[] = [];
-    let latestModelUsed = '';
+    const userMsgId = 'usr_' + Date.now();
+    const assistantMsgId = 'ast_' + (Date.now() + 1);
+
+    const newMessages: ChatMessage[] = [
+      ...messages,
+      {
+        id: userMsgId,
+        role: 'user',
+        content: query,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+      {
+        id: assistantMsgId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ];
+
+    setMessages(newMessages);
+    setInputQuery('');
+    setIsStreaming(true);
 
     const historyPayload = messages
-      .filter((m) => m.content && m.content.trim())
-      .map((m) => ({ role: m.role, content: m.content }));
+      .filter((m) => m.id !== 'welcome' && m.content.trim().length > 0)
+      .slice(-6)
+      .map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
 
-    await streamChatQuery(
+    let fullAnswer = '';
+
+    streamChatQuery(
       query,
-      selectedWardId,
+      selectedWardId || 4,
       language,
       {
-        onStatus: (status: string) => {
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessageId ? { ...msg, statusText: status } : msg
-            )
-          );
-        },
-        onToken: (token: string, model: string) => {
+        onToken: (token: string) => {
           fullAnswer += token;
-          latestModelUsed = model;
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === assistantMessageId
-                ? { ...msg, content: fullAnswer, statusText: undefined, modelUsed: model }
-                : msg
+              msg.id === assistantMsgId ? { ...msg, content: fullAnswer } : msg
             )
           );
         },
         onCitations: (citations: CitationItem[]) => {
-          latestCitations = citations;
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === assistantMessageId ? { ...msg, citations } : msg
+              msg.id === assistantMsgId ? { ...msg, citations } : msg
             )
           );
         },
-        onSOS: (sos: EmergencyPayload) => {
+        onSOS: (emergency: EmergencyPayload) => {
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === assistantMessageId ? { ...msg, emergency: sos } : msg
+              msg.id === assistantMsgId ? { ...msg, emergency } : msg
             )
           );
         },
         onClarification: (clarification: ClarificationPayload) => {
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === assistantMessageId ? { ...msg, clarification } : msg
+              msg.id === assistantMsgId ? { ...msg, clarification } : msg
             )
           );
         },
         onEscalation: (escalation: EscalationTicket) => {
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === assistantMessageId ? { ...msg, escalation } : msg
+              msg.id === assistantMsgId ? { ...msg, escalation } : msg
             )
           );
         },
-        onError: (errMsg: any) => {
+        onError: (err: string) => {
+          setIsStreaming(false);
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === assistantMessageId
+              msg.id === assistantMsgId
                 ? {
                     ...msg,
-                    content: `Service Notice: ${errMsg}`,
-                    statusText: undefined,
+                    content:
+                      msg.content ||
+                      `⚠️ **Connection Error**: ${err}. Please ensure the backend is running.`,
                   }
                 : msg
             )
           );
-          setIsStreaming(false);
         },
         onDone: () => {
           setIsStreaming(false);
 
-          // Persist completed conversation into localStorage with strict 20-chat limit
-          const finalMessages: ChatMessage[] = [
-            ...messages,
-            userMessage,
-            {
-              id: assistantMessageId,
-              role: 'assistant',
-              content: fullAnswer,
-              citations: latestCitations,
-              modelUsed: latestModelUsed,
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            },
-          ];
+          const finalMessages = messages.map((msg) =>
+            msg.id === assistantMsgId ? { ...msg, content: fullAnswer } : msg
+          );
 
           const updated = saveStoredSession({
             id: conversationId,
@@ -361,8 +369,36 @@ export function App() {
 
   const currentWard = wards.find((w) => w.ward_id === selectedWardId);
 
+  // If user navigated to Full Settings Page (Screenshot 1)
+  if (activeView === 'settings') {
+    return (
+      <SettingsView
+        user={userProfile}
+        onUpdateUser={handleUpdateUserProfile}
+        onNavigate={(view) => setActiveView(view)}
+        onClose={() => setActiveView('conversation')}
+        isTTSEnabled={isTTSEnabled}
+        onToggleTTS={() => setIsTTSEnabled(!isTTSEnabled)}
+        sessionsCount={storedSessions.length}
+        onClearSessions={handleClearAllSessions}
+      />
+    );
+  }
+
+  // If user navigated to Public Landing Page (Screenshot 4)
+  if (activeView === 'landing') {
+    return (
+      <LandingPage
+        onStartExploring={() => setActiveView('conversation')}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onOpenAccount={() => setActiveView('settings')}
+      />
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-grid-pattern text-slate-900 dark:text-zinc-100 flex flex-col font-sans selection:bg-slate-300 dark:selection:bg-white/20 transition-colors duration-200">
+    <div className="min-h-screen bg-white dark:bg-[#08090D] text-slate-900 dark:text-zinc-100 flex flex-col font-sans transition-colors duration-200">
       {/* Gemini-Style Collapsible Sidebar */}
       <ConversationSidebar
         isOpen={isSidebarOpen}
@@ -376,15 +412,17 @@ export function App() {
         t={t}
       />
 
-      {/* Living Ward & Mode Navigation HUD */}
+      {/* Streamlined, Decluttered Top Bar (Fixing Screenshot 5 Clutter) */}
       <WardHUD
         wards={wards}
         selectedWardId={selectedWardId}
         onSelectWard={(id) => setSelectedWardId(id)}
         language={language}
         onSelectLanguage={(lang) => setLanguage(lang)}
-        isAdminMode={isAdminMode}
-        onToggleAdmin={() => setIsAdminMode(!isAdminMode)}
+        isAdminMode={activeView === 'dashboard'}
+        onToggleAdmin={() =>
+          setActiveView(activeView === 'dashboard' ? 'conversation' : 'dashboard')
+        }
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         theme={theme}
         onToggleTheme={toggleTheme}
@@ -392,8 +430,11 @@ export function App() {
         sessionsCount={storedSessions.length}
         onDetectWard={handleDetectWard}
         isDetectingWard={isDetectingWard}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenAccount={() => setIsAccountOpen(true)}
+        user={userProfile}
+        onOpenSettings={() => setActiveView('settings')}
+        onNavigateHome={() => setActiveView('landing')}
+        activeView={activeView}
+        onSelectView={(view) => setActiveView(view)}
       />
 
       {/* Geolocation Auto-Detection Notification Banner */}
@@ -427,29 +468,8 @@ export function App() {
         onClose={() => setActiveReceiptTicket(null)}
       />
 
-      {/* ⚙️ Preserved Settings Modal (Professional Interface) */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        language={language}
-        onSelectLanguage={(lang) => setLanguage(lang)}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        isTTSEnabled={isTTSEnabled}
-        onToggleTTS={() => setIsTTSEnabled(!isTTSEnabled)}
-        onClearSessions={handleClearAllSessions}
-        sessionsCount={storedSessions.length}
-      />
-
-      {/* 👤 Preserved Account Information Modal (Top Right Account Details) */}
-      <AccountModal
-        isOpen={isAccountOpen}
-        onClose={() => setIsAccountOpen(false)}
-        currentWard={currentWard}
-      />
-
       {/* MAIN VIEW: Admin Dashboard vs Citizen Concierge */}
-      {isAdminMode ? (
+      {activeView === 'dashboard' ? (
         <main className="flex-1 relative z-10">
           <AdminDashboard />
         </main>
@@ -458,202 +478,166 @@ export function App() {
           {/* Hero State (When chat has just started) */}
           {messages.length <= 1 && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.4 }}
-              className="my-auto py-2"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+              className="my-auto"
             >
               <TypewriterHero onSelectQuery={(q) => handleSubmit(q)} />
             </motion.div>
           )}
 
-          {/* Quick Municipal Action Pills (Sticky Scroll Bar) */}
+          {/* Chat Messages Log */}
           {messages.length > 1 && (
-            <div className="no-print flex items-center justify-between gap-2 py-2 mb-3 border-b border-slate-200 dark:border-white/[0.08]">
-              <div className="flex items-center gap-2 overflow-x-auto text-xs scrollbar-none py-1">
-                <button
-                  onClick={() => handleSubmit('What is the early bird 10% rebate for Property Tax in Ward 4?')}
-                  className="liquid-glass-pill px-3 py-1.5 rounded-full text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
-                >
-                  {t.pillPropertyTax}
-                </button>
-                <button
-                  onClick={() => handleSubmit('Report water pipe burst with contaminated water')}
-                  className="liquid-glass-pill px-3 py-1.5 rounded-full text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
-                >
-                  {t.pillWaterBurst}
-                </button>
-                <button
-                  onClick={() => handleSubmit('What are the penalties for open garbage dumping under 2026 rules?')}
-                  className="liquid-glass-pill px-3 py-1.5 rounded-full text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
-                >
-                  {t.pillSanitation}
-                </button>
-                <button
-                  onClick={() => handleSubmit('What are the setbacks and approval SLAs for building plan permission?')}
-                  className="liquid-glass-pill px-3 py-1.5 rounded-full text-slate-700 dark:text-zinc-300 hover:text-slate-950 dark:hover:text-white transition-all whitespace-nowrap cursor-pointer text-xs"
-                >
-                  {t.pillBuildingPermits}
-                </button>
-              </div>
-
-              {/* Reset Chat Button */}
-              <button
-                onClick={handleResetChat}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/[0.06] transition-colors text-xs shrink-0 cursor-pointer"
-                title="Clear current session"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span className="hidden sm:inline">{t.newSession}</span>
-              </button>
-            </div>
-          )}
-
-          {/* Conversation Stream with Liquid Glass Styling */}
-          <div className="flex-1 space-y-4">
-            <AnimatePresence initial={false}>
-              {messages.map((msg) => (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 14, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                  className={`flex gap-3 text-sm ${
-                    msg.role === 'user' ? 'justify-end' : 'justify-start'
-                  }`}
-                >
-                  {/* Assistant Avatar */}
-                  {msg.role === 'assistant' && (
-                    <div className="w-8 h-8 rounded-lg bg-black/5 dark:bg-white/[0.05] border border-black/10 dark:border-white/10 text-slate-700 dark:text-zinc-300 flex items-center justify-center shrink-0 shadow-sm text-xs font-mono">
-                      <Bot className="w-4 h-4" />
-                    </div>
-                  )}
-
-                  {/* Message Bubble Container */}
-                  <div
-                    className={`max-w-[90%] sm:max-w-[82%] rounded-2xl p-4 sm:p-5 shadow-xl ${
-                      msg.role === 'user'
-                        ? 'bg-slate-200 dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 rounded-tr-xs border border-slate-300/80 dark:border-white/10 shadow-md'
-                        : 'liquid-glass border border-slate-200/80 dark:border-white/[0.08] text-slate-900 dark:text-zinc-100 rounded-tl-xs shadow-xl backdrop-blur-2xl'
+            <div className="space-y-4 pt-2">
+              {messages
+                .filter((m) => m.id !== 'welcome')
+                .map((msg) => (
+                  <motion.div
+                    key={msg.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className={`flex gap-3 sm:gap-4 ${
+                      msg.role === 'user' ? 'justify-end' : 'justify-start'
                     }`}
                   >
-                    {/* Status Indicator */}
-                    {msg.statusText && (
-                      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400 font-mono mb-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-zinc-300 animate-pulse" />
-                        <span>{msg.statusText}</span>
+                    {/* Assistant Bot Icon */}
+                    {msg.role === 'assistant' && (
+                      <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-800 dark:text-zinc-200 shrink-0 mt-0.5">
+                        <Bot className="w-4 h-4 text-emerald-500" />
                       </div>
                     )}
 
-                    {/* Text Content with Secure Markdown Renderer */}
-                    <div className="leading-relaxed text-slate-800 dark:text-zinc-200">
-                      {msg.role === 'user' ? (
-                        <div className="whitespace-pre-wrap font-medium">{msg.content}</div>
-                      ) : (
-                        <div>
+                    <div
+                      className={`flex flex-col max-w-[90%] sm:max-w-[80%] ${
+                        msg.role === 'user' ? 'items-end' : 'items-start'
+                      }`}
+                    >
+                      {/* Message Bubble */}
+                      <div
+                        className={`p-4 rounded-2xl text-xs sm:text-sm leading-relaxed transition-all ${
+                          msg.role === 'user'
+                            ? 'bg-slate-900 dark:bg-zinc-800 text-white rounded-br-none shadow-sm'
+                            : 'bg-slate-50 dark:bg-[#11131C] text-slate-900 dark:text-zinc-100 rounded-bl-none border border-slate-200/90 dark:border-white/10 shadow-sm'
+                        }`}
+                      >
+                        {/* Markdown / Formatted Text Renderer */}
+                        <div className="prose dark:prose-invert prose-xs sm:prose-sm max-w-none break-words">
                           {renderSecureCivicText(msg.content)}
-                          {isStreaming && msg.role === 'assistant' && msg.id === messages[messages.length - 1]?.id && (
-                            <span className="inline-block w-1.5 h-3.5 ml-1.5 bg-slate-900 dark:bg-zinc-200 animate-pulse rounded-xs align-middle" />
-                          )}
                         </div>
-                      )}
+
+                        {/* Streaming Indicator */}
+                        {isStreaming && msg.id === messages[messages.length - 1].id && (
+                          <span className="inline-block w-1.5 h-3.5 bg-emerald-500 animate-pulse ml-1 align-middle" />
+                        )}
+
+                        {/* Statutory Citations Chips */}
+                        {msg.citations && msg.citations.length > 0 && (
+                          <div className="mt-4 pt-3 border-t border-slate-200/80 dark:border-white/[0.08]">
+                            <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-2 font-bold">
+                              Statutory Gazettes & Official Sources
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {msg.citations.map((c, idx) => (
+                                <CitationChip key={idx} citation={c} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Interactive Emergency Dispatch Card */}
+                        {msg.emergency && (
+                          <EmergencyCard emergency={msg.emergency} />
+                        )}
+
+                        {/* Clarification Dialog Card */}
+                        {msg.clarification && (
+                          <ClarificationCard
+                            clarification={msg.clarification}
+                            onSelectOption={(opt) => handleSubmit(opt)}
+                          />
+                        )}
+
+                        {/* Statutory Escalation Grievance Ticket Card */}
+                        {msg.escalation && (
+                          <EscalationCard
+                            escalation={msg.escalation}
+                            wardName={currentWard?.ward_name}
+                            onOpenReceipt={(ticket: EscalationTicket) => setActiveReceiptTicket(ticket)}
+                          />
+                        )}
+                      </div>
+
+                      {/* Timestamp */}
+                      <span className="text-[10px] font-mono text-slate-400 dark:text-zinc-500 mt-1 px-1">
+                        {msg.timestamp}
+                      </span>
                     </div>
 
-                    {/* Emergency SOS Alert Card */}
-                    {msg.emergency && <EmergencyCard emergency={msg.emergency} />}
-
-                    {/* Clarification Questionnaire Card */}
-                    {msg.clarification && (
-                      <ClarificationCard
-                        clarification={msg.clarification}
-                        onSelectOption={handleClarificationSelect}
-                      />
-                    )}
-
-                    {/* Grievance Escalation Docket Card */}
-                    {msg.escalation && (
-                      <EscalationCard
-                        escalation={msg.escalation}
-                        wardName={currentWard?.ward_name}
-                        onOpenReceipt={setActiveReceiptTicket}
-                      />
-                    )}
-
-                    {/* Official Verified Evidence Rail */}
-                    {msg.citations && msg.citations.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-black/5 dark:border-white/[0.06] flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-zinc-400 mr-1 font-mono tracking-wider flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-slate-600 dark:text-zinc-400" />
-                          {t.verifiedCitations}
-                        </span>
-                        {msg.citations.map((c) => (
-                          <CitationChip key={c.index} citation={c} />
-                        ))}
+                    {/* User Avatar */}
+                    {msg.role === 'user' && (
+                      <div className="w-8 h-8 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                        {userProfile.avatarUrl ? (
+                          <img
+                            src={userProfile.avatarUrl}
+                            alt="User"
+                            className="w-full h-full rounded-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <User className="w-4 h-4" />
+                        )}
                       </div>
                     )}
-
-                    {/* Footer Timestamp & Model Badge */}
-                    <div className="mt-3 flex items-center justify-between text-[10px] text-slate-400 dark:text-zinc-400 font-mono">
-                      <span>{msg.timestamp}</span>
-                      {msg.modelUsed && (
-                        <span className="text-slate-600 dark:text-zinc-400 bg-black/5 dark:bg-white/[0.04] border border-black/10 dark:border-white/[0.08] px-2 py-0.5 rounded font-mono text-[10px]">
-                          {msg.modelUsed}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* User Avatar */}
-                  {msg.role === 'user' && (
-                    <div className="w-8 h-8 rounded-lg bg-black/5 dark:bg-white/[0.03] text-slate-600 dark:text-zinc-400 flex items-center justify-center shrink-0 border border-black/10 dark:border-white/[0.08]">
-                      <User className="w-4 h-4" />
-                    </div>
-                  )}
-                </motion.div>
-              ))}
-            </AnimatePresence>
-            <div ref={messagesEndRef} />
-          </div>
+                  </motion.div>
+                ))}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
         </main>
       )}
 
-      {/* Floating Liquid Glass Input Dock (Citizen Mode) */}
-      {!isAdminMode && (
-        <div className="no-print fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#F8FAFC] via-[#F8FAFC]/90 to-transparent dark:from-[#08090D] dark:via-[#08090D]/90 z-40 transition-colors">
-          <div className="max-w-4xl mx-auto">
+      {/* Floating Bottom Prompt Input Bar (Visible only in Conversation Mode) */}
+      {activeView === 'conversation' && (
+        <div className="fixed bottom-0 left-0 right-0 z-30 p-3 sm:p-5 pointer-events-none">
+          <div className="max-w-3xl mx-auto w-full pointer-events-auto">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSubmit();
               }}
-              className="flex items-center gap-2 p-2 liquid-glass rounded-2xl shadow-2xl border border-slate-200/80 dark:border-white/10 focus-within:border-slate-400 dark:focus-within:border-white/20 transition-all backdrop-blur-2xl"
+              className="p-1.5 sm:p-2 rounded-2xl bg-white/95 dark:bg-[#12141C]/95 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 shadow-xl shadow-black/10 flex items-center gap-1.5 sm:gap-2"
             >
-              {/* Voice Speech Recognition Button */}
+              {/* Reset Conversation Button */}
+              <motion.button
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                type="button"
+                onClick={handleResetChat}
+                className="p-2 rounded-xl text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
+                title={t.clearHistory}
+              >
+                <RotateCcw className="w-4 h-4" />
+              </motion.button>
+
+              {/* Speech-to-Text Microphone Button */}
               <motion.button
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
                 type="button"
                 onClick={startListening}
-                className={`p-2.5 rounded-xl transition-all cursor-pointer ${
+                className={`p-2 rounded-xl transition-colors cursor-pointer ${
                   isListening
-                    ? 'bg-slate-950 dark:bg-white text-white dark:text-zinc-950 shadow-md font-semibold'
-                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/[0.06]'
+                    ? 'bg-red-500/20 text-red-500 dark:text-red-400 animate-pulse border border-red-500/30'
+                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06]'
                 }`}
-                title="Speak in your regional language (English, Hindi, Marathi, etc.)"
+                title={isListening ? t.listeningVoice : 'Voice Input'}
               >
-                {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                {isListening ? <MicOff className="w-4 h-4 text-red-500" /> : <Mic className="w-4 h-4" />}
               </motion.button>
-
-              {/* Minimalist Soundwave Indicator */}
-              {isListening && (
-                <div className="flex items-center gap-0.5 px-2">
-                  <span className="w-0.5 bg-slate-600 dark:bg-zinc-300 rounded-full animate-wave-1" />
-                  <span className="w-0.5 bg-slate-600 dark:bg-zinc-300 rounded-full animate-wave-2" />
-                  <span className="w-0.5 bg-slate-600 dark:bg-zinc-300 rounded-full animate-wave-3" />
-                  <span className="w-0.5 bg-slate-600 dark:bg-zinc-300 rounded-full animate-wave-4" />
-                  <span className="w-0.5 bg-slate-600 dark:bg-zinc-300 rounded-full animate-wave-5" />
-                </div>
-              )}
 
               {/* Text Input */}
               <input
@@ -673,12 +657,12 @@ export function App() {
                 onClick={() => setIsTTSEnabled(!isTTSEnabled)}
                 className={`p-2 rounded-xl transition-colors cursor-pointer ${
                   isTTSEnabled
-                    ? 'text-slate-900 dark:text-white bg-black/5 dark:bg-white/[0.1] border border-black/10 dark:border-white/20'
-                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/[0.06]'
+                    ? 'text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.1] border border-slate-200 dark:border-white/20'
+                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06]'
                 }`}
                 title={isTTSEnabled ? t.audioToggleOn : t.audioToggleOff}
               >
-                {isTTSEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                {isTTSEnabled ? <Volume2 className="w-4 h-4 text-emerald-500" /> : <VolumeX className="w-4 h-4" />}
               </motion.button>
 
               {/* Send Button */}
@@ -687,7 +671,7 @@ export function App() {
                 whileTap={{ scale: 0.96 }}
                 type="submit"
                 disabled={!inputQuery.trim() || isStreaming}
-                className="p-2.5 rounded-xl bg-slate-950 dark:bg-white hover:bg-slate-800 dark:hover:bg-zinc-200 disabled:opacity-30 disabled:hover:bg-slate-950 dark:disabled:hover:bg-white text-white dark:text-zinc-950 font-semibold shadow-sm transition-all cursor-pointer"
+                className="p-2.5 rounded-xl bg-slate-950 dark:bg-white hover:bg-slate-800 dark:hover:bg-zinc-200 disabled:opacity-30 disabled:hover:bg-slate-950 dark:disabled:hover:bg-white text-white dark:text-slate-950 font-semibold shadow-sm transition-all cursor-pointer"
                 title={t.sendQuery}
               >
                 <Send className="w-4 h-4" />
